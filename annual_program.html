@@ -64,6 +64,116 @@ canvas { position:fixed; inset:0; display:block; cursor:none; }
 .fact strong { display:block; font-size:18px; font-weight:700; color:#1a1a1a; margin-bottom:2px; }
 #cclose { position:absolute; top:18px; right:18px; width:32px; height:32px; border-radius:50%; background:#f0f0f0; border:none; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#666; transition:background .15s; }
 #cclose:hover { background:#e0e0e0; }
+
+/* ── EXPLODE LAYER ── */
+#explode-layer {
+  position: fixed; inset: 0; z-index: 150;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#explode-layer.on {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.fact-card {
+  position: absolute;
+  background: #fff;
+  border-radius: 20px;
+  padding: 18px 22px;
+  cursor: grab;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07);
+  transform-origin: center center;
+  transition: box-shadow 0.2s ease;
+  user-select: none;
+  overflow: visible;
+}
+.fact-card:active { cursor: grabbing; }
+.fact-card:hover { box-shadow: 0 16px 60px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.09); }
+
+.fact-card .fc-bar {
+  height: 4px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  opacity: 0.85;
+}
+.fact-card .fc-cat {
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  opacity: 0.45;
+}
+.fact-card .fc-num {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  line-height: 1.05;
+  margin-bottom: 6px;
+  color: #1a1a1a;
+}
+.fact-card .fc-text {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #555;
+}
+
+/* floating emoji */
+.fact-card .fc-emoji {
+  position: absolute;
+  top: -22px;
+  right: -10px;
+  font-size: 2em;
+  pointer-events: none;
+  animation: floatEmoji 3s ease-in-out infinite;
+  animation-delay: var(--edelay, 0s);
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+}
+@keyframes floatEmoji {
+  0%, 100% { transform: translateY(0) rotate(var(--erot, -5deg)); }
+  50% { transform: translateY(-8px) rotate(var(--erot2, 5deg)); }
+}
+
+/* explode button */
+#explode-btn {
+  position: fixed;
+  bottom: 36px; right: 36px;
+  z-index: 200;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  padding: 14px 28px;
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 100px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+#explode-btn:hover { transform: scale(1.04); background: #333; }
+#explode-btn.on { background: #E8635A; }
+
+/* card entrance animation */
+@keyframes cardIn {
+  from { opacity: 0; transform: translate(var(--ox), var(--oy)) scale(0.3) rotate(var(--rot)); }
+  to   { opacity: 1; transform: translate(0,0) scale(1) rotate(var(--rot)); }
+}
+.fact-card.animating {
+  animation: cardIn 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+}
+@keyframes cardOut {
+  from { opacity: 1; transform: translate(0,0) scale(1) rotate(var(--rot)); }
+  to   { opacity: 0; transform: translate(var(--ox), var(--oy)) scale(0.2) rotate(var(--rot)); }
+}
+.fact-card.animating-out {
+  animation: cardOut 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
 </style>
 </head>
 <body>
@@ -88,7 +198,7 @@ canvas { position:fixed; inset:0; display:block; cursor:none; }
   <div class="lr"><div class="ld" style="background:#A8D8A8"></div>BOH<span class="lp">8%</span></div>
 </div>
 
-<div id="hint">move mouse to flow · click to explore</div>
+<div id="hint" style="bottom:90px;">move mouse to flow · click shape to explore</div>
 
 <div id="overlay">
   <div id="card">
@@ -454,5 +564,165 @@ function loop() {
 
 loop();
 </script>
+
+<div id="explode-layer"></div>
+<button id="explode-btn">✦ Explode</button>
+
+<script>
+// ── ALL FACTS as individual cards ──
+const ALL_FACTS = [
+  { cat:"Watch", color:"#E8635A", emoji:"🍿", num:"7,000+", text:"film shoot permits issued annually — NYC streets are the world's biggest backlot" },
+  { cat:"Watch", color:"#E8635A", emoji:"🎭", num:"41", text:"official Broadway theaters, but only 4 are actually on Broadway" },
+  { cat:"Watch", color:"#E8635A", emoji:"🐦", num:"275+", text:"bird species spotted in Central Park — a major stop on the Atlantic Flyway" },
+  { cat:"Watch", color:"#E8635A", emoji:"🎬", num:"13,404", text:"Broadway performances in 2024-25 — the most ever in a single season" },
+  { cat:"Play", color:"#F2C94C", emoji:"🪩", num:"1,700+", text:"public parks and playgrounds across the five boroughs" },
+  { cat:"Play", color:"#F2C94C", emoji:"🎢", num:"1927", text:"the year the Cyclone roller coaster opened in Coney Island — still running today" },
+  { cat:"Play", color:"#F2C94C", emoji:"🏀", num:"500+", text:"outdoor basketball courts, known globally as the proving grounds of streetball" },
+  { cat:"Play", color:"#F2C94C", emoji:"🎮", num:"800+", text:"languages spoken in Queens — the most linguistically diverse place on Earth" },
+  { cat:"Share", color:"#5BC8C8", emoji:"📸", num:"13,000+", text:"iconic yellow taxis roaming the streets of New York City" },
+  { cat:"Share", color:"#5BC8C8", emoji:"🍕", num:"500,000", text:"whole pizza pies consumed by New Yorkers every single day" },
+  { cat:"Share", color:"#5BC8C8", emoji:"🚇", num:"$2.90", text:"Pizza Principle: a subway ride and a slice have cost the same for 50+ years" },
+  { cat:"Learn", color:"#9B8EC4", emoji:"🏛️", num:"55M+", text:"open data records published by NYC government annually" },
+  { cat:"Learn", color:"#9B8EC4", emoji:"📚", num:"50M+", text:"items in the NY Public Library — second largest collection in the US" },
+  { cat:"Learn", color:"#9B8EC4", emoji:"🌳", num:"689,000+", text:"street trees registered in NYC — the London Planetree leads the count" },
+  { cat:"Learn", color:"#9B8EC4", emoji:"🏫", num:"100+", text:"museums across the city, from the massive Met to one inside an elevator shaft" },
+  { cat:"Gather", color:"#F4A7B9", emoji:"🍻", num:"2.5M", text:"spectators lining the streets for the Thanksgiving Day Parade every year" },
+  { cat:"Gather", color:"#F4A7B9", emoji:"🎉", num:"330,000", text:"people passing through Times Square daily — the Crossroads of the World" },
+  { cat:"Gather", color:"#F4A7B9", emoji:"🍽️", num:"26,000+", text:"restaurants in NYC — eat at a new one every day for 71 years" },
+  { cat:"Gather", color:"#F4A7B9", emoji:"🎪", num:"14,660,000", text:"Broadway audience members last season — nearly $1.9B in ticket sales" },
+  { cat:"Hang", color:"#4ecdc4", emoji:"🌭", num:"$289K", text:"highest annual fee ever paid for a single hot dog cart permit in Central Park" },
+  { cat:"Hang", color:"#4ecdc4", emoji:"🛋️", num:"9,000+", text:"benches in Central Park alone — perfect for resting and people-watching" },
+  { cat:"Hang", color:"#4ecdc4", emoji:"🌊", num:"520 mi", text:"of NYC coastline — longer than Miami, Boston, LA, and SF combined" },
+  { cat:"Hang", color:"#4ecdc4", emoji:"☕", num:"99°F", text:"hottest day in Central Park in 2025 — highest temperature since 2012" },
+  { cat:"BOH", color:"#A8D8A8", emoji:"🚇", num:"472", text:"subway stations running 24 hours a day, 365 days a year" },
+  { cat:"BOH", color:"#A8D8A8", emoji:"💨", num:"105 mi", text:"of steam pipes beneath Manhattan — causing those iconic billowing manholes" },
+  { cat:"BOH", color:"#A8D8A8", emoji:"🗑️", num:"12,000", text:"tons of residential trash collected daily by the Department of Sanitation" },
+  { cat:"BOH", color:"#A8D8A8", emoji:"🐀", num:"8,048", text:"rat mitigation inspections in just the first half of 2025" },
+]
+
+// Size tiers — very exaggerated
+const SIZES = [
+  { w: 420, numSize: 52, textSize: 16 },  // XL
+  { w: 320, numSize: 38, textSize: 14 },  // L
+  { w: 250, numSize: 30, textSize: 13 },  // M
+  { w: 195, numSize: 23, textSize: 12 },  // S
+  { w: 155, numSize: 18, textSize: 11 },  // XS
+];
+
+const layer = document.getElementById('explode-layer');
+const explodeBtn = document.getElementById('explode-btn');
+let exploded = false;
+let dragCard = null, dragOffX = 0, dragOffY = 0;
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+
+function explode() {
+  exploded = true;
+  explodeBtn.textContent = '✕ Collapse';
+  explodeBtn.classList.add('on');
+  layer.classList.add('on');
+  layer.innerHTML = '';
+
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+
+  // Assign sizes — distribute across all facts
+  const sizePool = [];
+  ALL_FACTS.forEach((_, i) => {
+    // weighted: more M/S, fewer XL/XS
+    const weights = [0.08, 0.18, 0.35, 0.27, 0.12];
+    const r = Math.random();
+    let acc = 0, si = 3;
+    for (let j = 0; j < weights.length; j++) { acc += weights[j]; if (r < acc) { si = j; break; } }
+    sizePool.push(SIZES[si]);
+  });
+
+  // Grid-based placement to fill screen evenly
+  const cols = 5, rows = Math.ceil(ALL_FACTS.length / cols);
+  const cellW = window.innerWidth / cols;
+  const cellH = (window.innerHeight - 80) / rows;
+
+  ALL_FACTS.forEach((fact, i) => {
+    const sz = sizePool[i];
+    const rot = rand(-12, 12);
+
+    // Place in grid cell with small random offset
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const tx = col * cellW + rand(8, cellW - sz.w - 8);
+    const ty = 80 + row * cellH + rand(4, Math.max(8, cellH - 160));
+
+    // Origin offset (from center, for animation)
+    const ox = (tx + sz.w/2 - cx);
+    const oy = (ty + 80 - cy);
+
+    const card = document.createElement('div');
+    card.className = 'fact-card animating';
+    card.style.cssText = `
+      left: ${tx}px; top: ${ty}px;
+      width: ${sz.w}px;
+      --rot: ${rot}deg;
+      --ox: ${-ox}px;
+      --oy: ${-oy}px;
+      transform: rotate(${rot}deg);
+      animation-delay: ${rand(0, 0.25)}s;
+      z-index: ${Math.floor(rand(1, 30))};
+    `;
+
+    card.innerHTML = `
+      <div class="fc-bar" style="background:${fact.color}"></div>
+      <div class="fc-cat" style="color:${fact.color}">${fact.cat}</div>
+      <div class="fc-num" style="font-size:${sz.numSize}px">${fact.num}</div>
+      <div class="fc-text" style="font-size:${sz.textSize}px">${fact.text}</div>
+      <div class="fc-emoji" style="--edelay:${rand(0,2)}s; --erot:${rand(-12,0)}deg; --erot2:${rand(0,12)}deg">${fact.emoji}</div>
+    `;
+
+    // Drag
+    card.addEventListener('mousedown', e => {
+      dragCard = card;
+      dragOffX = e.clientX - card.getBoundingClientRect().left;
+      dragOffY = e.clientY - card.getBoundingClientRect().top;
+      card.style.zIndex = 999;
+      card.style.transition = 'box-shadow 0.2s ease';
+      e.stopPropagation();
+    });
+
+    // remove animation class after done
+    card.addEventListener('animationend', () => card.classList.remove('animating'));
+
+    layer.appendChild(card);
+  });
+}
+
+function collapse() {
+  exploded = false;
+  explodeBtn.textContent = '✦ Explode';
+  explodeBtn.classList.remove('on');
+
+  const cards = layer.querySelectorAll('.fact-card');
+  cards.forEach((card, i) => {
+    card.classList.add('animating-out');
+    card.style.animationDelay = `${i * 0.015}s`;
+  });
+  setTimeout(() => {
+    layer.classList.remove('on');
+    layer.innerHTML = '';
+  }, 500);
+}
+
+explodeBtn.addEventListener('click', () => {
+  if (exploded) collapse(); else explode();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && exploded) collapse(); });
+
+// Global drag handlers
+window.addEventListener('mousemove', e => {
+  if (!dragCard) return;
+  dragCard.style.left = (e.clientX - dragOffX) + 'px';
+  dragCard.style.top  = (e.clientY - dragOffY) + 'px';
+});
+window.addEventListener('mouseup', () => { dragCard = null; });
+</script>
+
 </body>
 </html>
