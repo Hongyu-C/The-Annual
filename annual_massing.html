@@ -269,7 +269,7 @@ function onAllLoaded() {
 loadAll();
 
 // ─── ORBIT ────────────────────────────────────────────────────────────────────
-const orb={theta:0.4,phi:1.05,r:300};
+const orb={theta:0.4,phi:0.55,r:300};
 const orbTarget=new THREE.Vector3(0,50,0);
 
 function applyOrbit(){
@@ -316,11 +316,9 @@ window.addEventListener('mousemove',e=>{
   const hits=raycaster.intersectObjects(blocks.map(b=>b.mesh));
   if (hits.length){
     const hit=blocks.find(b=>b.mesh===hits[0].object);
-    if (hit!==hoveredBlock){
-      if(hoveredBlock)hoveredBlock.wobbleAmp=0;
-      hoveredBlock=hit;
-      if(hit)hit.wobbleAmp=1;
-    }
+   if(hit!==hoveredBlock){
+  hoveredBlock=hit;
+}
     cursor.classList.add('hovering'); cursor.classList.remove('grabbed');
     blockTag.style.opacity='1';
     blockTag.style.left=(e.clientX+14)+'px';
@@ -399,7 +397,10 @@ function animate(){
   requestAnimationFrame(animate);
   const t=clock.getElapsedTime();
   blocks.forEach(b=>{
-    b.mesh.position.lerp(b.targetPos,0.08);
+    if(b.mesh.position.distanceTo(b.targetPos)>0.01)
+  b.mesh.position.lerp(b.targetPos,0.08);
+else
+  b.mesh.position.copy(b.targetPos);
     if(currentMode==='pile'){
       const breathe=1+Math.sin(t*0.5+b.wobblePhase)*0.004;
       const jiggle=b.wobbleAmp>0.01?b.wobbleAmp*0.04*Math.sin(t*9+b.wobblePhase):0;
