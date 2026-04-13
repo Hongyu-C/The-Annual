@@ -348,6 +348,7 @@ window.addEventListener('mousemove',e=>{
         draggedBlock.mesh.position.y,
         dragHit.z-dragOffXZ.z
       );
+      console.log('dragging | targetPos:',draggedBlock.targetPos.toArray(),'| meshPos:',draggedBlock.mesh.position.toArray());
     }
     return;
   }
