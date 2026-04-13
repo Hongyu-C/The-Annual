@@ -277,7 +277,10 @@ function onAllLoaded(){
     // physics state
     b.vel     = new THREE.Vector3();
     b.falling = false;
-    b.floorY  = b.mesh.position.y; // blocks rest at their own pile height
+    b.floorY  = b.mesh.position.y;
+    b.dragVelX= 0;
+    b.dragVelZ= 0;
+    b.squishT = 0; // 0=normal, >0=squishing
   });
 
   floorMesh.position.y=0;
@@ -343,11 +346,12 @@ window.addEventListener('mousemove',e=>{
     raycaster.setFromCamera(mouse2d,camera);
     if(raycaster.ray.intersectPlane(dragPlaneH,dragHit)){
       draggedBlock.vel.set(0,0,0);
-      draggedBlock.targetPos.set(
-        dragHit.x-dragOffXZ.x,
-        draggedBlock.mesh.position.y,
-        dragHit.z-dragOffXZ.z
-      );
+      const nx=dragHit.x-dragOffXZ.x;
+      const nz=dragHit.z-dragOffXZ.z;
+      // track drag velocity for inertia on release
+      draggedBlock.dragVelX=(nx-draggedBlock.targetPos.x)*0.6+draggedBlock.dragVelX*0.4;
+      draggedBlock.dragVelZ=(nz-draggedBlock.targetPos.z)*0.6+draggedBlock.dragVelZ*0.4;
+      draggedBlock.targetPos.set(nx, draggedBlock.mesh.position.y, nz);
     }
     return;
   }
@@ -409,9 +413,13 @@ window.addEventListener('mousedown',e=>{
 
 window.addEventListener('mouseup',()=>{
   if(draggedBlock){
-    // release: trigger gravity drop
+    // transfer drag inertia to physics velocity
+    draggedBlock.vel.set(
+      draggedBlock.dragVelX*55,
+      0,
+      draggedBlock.dragVelZ*55
+    );
     draggedBlock.falling=true;
-    draggedBlock.vel.set(0,0,0);
     draggedBlock.homePos.copy(draggedBlock.targetPos);
     draggedBlock=null;
     cursorEl.classList.remove('grabbed');
@@ -456,6 +464,10 @@ function resetAll(){
     b.targetPos.copy(b.originalPos);
     b.falling=false;
     b.vel.set(0,0,0);
+    b.squishT=0;
+    b.dragVelX=0;
+    b.dragVelZ=0;
+    b.mesh.scale.set(1,1,1);
   });
   setMode('pile');
 }
@@ -476,7 +488,6 @@ function animate(){
 
   blocks.forEach(b=>{
     if(currentMode==='explode' && b.falling && b!==draggedBlock){
-      // physics: gravity + bounce
       b.vel.y+=GRAVITY*dt;
       b.vel.x*=DRAG_XZ;
       b.vel.z*=DRAG_XZ;
@@ -485,9 +496,12 @@ function animate(){
       b.mesh.position.z+=b.vel.z*dt;
       if(b.mesh.position.y<=b.floorY){
         b.mesh.position.y=b.floorY;
+        if(Math.abs(b.vel.y)>8){
+          b.squishT=1; // trigger squish on impact
+        }
         b.vel.y*=-BOUNCE;
-        b.vel.x*=0.7; b.vel.z*=0.7;
-        if(Math.abs(b.vel.y)<5){
+        b.vel.x*=0.65; b.vel.z*=0.65;
+        if(Math.abs(b.vel.y)<5 && Math.abs(b.vel.x)<3){
           b.vel.set(0,0,0);
           b.falling=false;
           b.homePos.copy(b.mesh.position);
@@ -496,10 +510,18 @@ function animate(){
       }
       b.targetPos.copy(b.mesh.position);
     } else {
-      // smooth lerp toward target — runs for ALL blocks including draggedBlock
       const d=b.mesh.position.distanceTo(b.targetPos);
       if(d>SNAP_DIST) b.mesh.position.lerp(b.targetPos,0.18);
       else            b.mesh.position.copy(b.targetPos);
+    }
+
+    // squish animation — independent of physics
+    if(b.squishT>0){
+      b.squishT=Math.max(0,b.squishT-dt*3.5);
+      const s=Math.sin(b.squishT*Math.PI); // arc 0→1→0
+      b.mesh.scale.set(1+s*0.12, 1-s*0.09, 1+s*0.12);
+    } else {
+      b.mesh.scale.set(1,1,1);
     }
   });
 
