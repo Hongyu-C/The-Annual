@@ -316,11 +316,14 @@ window.addEventListener('mousemove',e=>{
   const hits=raycaster.intersectObjects(blocks.map(b=>b.mesh));
   if (hits.length){
     const hit=blocks.find(b=>b.mesh===hits[0].object);
-    // only trigger jiggle on first entry, not every frame
     if (hit!==hoveredBlock){
+      // clear old hover
+      if(hoveredBlock) hoveredBlock.mesh.material.emissive.setScalar(0);
       hoveredBlock=hit;
+      // highlight new hover with emissive glow
+      if(hit) hit.mesh.material.emissive.setScalar(0.12);
     }
-    cursor.classList.add('hovering'); cursor.classList.remove('grabbed');
+    cursor.classList.add('hovering');
     blockTag.style.opacity='1';
     blockTag.style.left=(e.clientX+14)+'px';
     blockTag.style.top=(e.clientY-8)+'px';
@@ -328,7 +331,7 @@ window.addEventListener('mousemove',e=>{
       ?`Block ${hit.mesh.userData.idx} · drag to move`
       :`Block ${hit.mesh.userData.idx}`;
   } else {
-    hoveredBlock=null;
+    if(hoveredBlock){ hoveredBlock.mesh.material.emissive.setScalar(0); hoveredBlock=null; }
     cursor.classList.remove('hovering');
     blockTag.style.opacity='0';
   }
@@ -338,6 +341,7 @@ window.addEventListener('mousedown',e=>{
   if(e.button!==0)return;
   if(hoveredBlock&&currentMode==='explode'){
     draggedBlock=hoveredBlock;
+    draggedBlock.mesh.material.emissive.setScalar(0);
     cursor.classList.add('grabbed');
     const camDir=new THREE.Vector3(); camera.getWorldDirection(camDir);
     dragPlane.setFromNormalAndCoplanarPoint(camDir,draggedBlock.mesh.position);
@@ -394,24 +398,16 @@ function setMode(mode){
 
 // ─── ANIMATION ────────────────────────────────────────────────────────────────
 const clock=new THREE.Clock();
+const SNAP_THRESHOLD=2; // feet — snap when within 2ft of target
+
 function animate(){
   requestAnimationFrame(animate);
-  const t=clock.getElapsedTime();
   blocks.forEach(b=>{
-    // snap to target once close enough — stops pile drift
     const dist=b.mesh.position.distanceTo(b.targetPos);
-    if(dist>0.5) b.mesh.position.lerp(b.targetPos,0.08);
+    if(dist>SNAP_THRESHOLD) b.mesh.position.lerp(b.targetPos,0.10);
     else b.mesh.position.copy(b.targetPos);
-
-    // subtle breathe on scale only — no position movement in pile
-    if(currentMode==='pile'){
-      const breathe=1+Math.sin(t*0.5+b.wobblePhase)*0.004;
-      b.mesh.scale.setScalar(breathe);
-    } else {
-      // gentle hover highlight in explode mode
-      const isHov=(b===hoveredBlock);
-      b.mesh.scale.setScalar(isHov?1.04:1.0);
-    }
+    // scale always 1 — any scale animation breaks raycaster hover detection
+    b.mesh.scale.setScalar(1.0);
   });
   renderer.render(scene,camera);
 }
