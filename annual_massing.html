@@ -272,8 +272,12 @@ function onAllLoaded(){
     b.mesh.position.y -= shiftY;
     b.mesh.position.z -= shiftZ;
     b.homePos.copy(b.mesh.position);
-    b.originalPos.copy(b.mesh.position);  // update AFTER shift
+    b.originalPos.copy(b.mesh.position);
     b.targetPos.copy(b.mesh.position);
+    // physics state
+    b.vel     = new THREE.Vector3();
+    b.falling = false;
+    b.floorY  = b.mesh.position.y; // blocks rest at their own pile height
   });
 
   floorMesh.position.y=0;
@@ -319,7 +323,7 @@ applyOrbit();
 // ── INTERACTION ───────────────────────────────────────────────────────────────
 let isOrbiting=false, orbitStart={x:0,y:0}, orbitSnap={theta:0,phi:0};
 let hoveredBlock=null, draggedBlock=null;
-const dragPlaneY=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+const dragPlaneH=new THREE.Plane(new THREE.Vector3(0,1,0),0); // horizontal drag plane
 const dragHit=new THREE.Vector3();
 const dragOffXZ={x:0,z:0};
 const raycaster=new THREE.Raycaster();
@@ -332,23 +336,23 @@ function setEmissive(b,v){ if(b) b.mesh.material.emissive.setScalar(v); }
 window.addEventListener('mousemove',e=>{
   cursorEl.style.left=e.clientX+'px';
   cursorEl.style.top=e.clientY+'px';
-  mouse2d.set((e.clientX/innerWidth)*2-1, -(e.clientY/innerHeight)*2+1);
+  mouse2d.set((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
 
-  // dragging a block (explode mode only)
   if(draggedBlock){
-    dragPlaneY.constant=-draggedBlock.mesh.position.y;
+    // drag on horizontal plane at block's current height
+    dragPlaneH.constant=-draggedBlock.mesh.position.y;
     raycaster.setFromCamera(mouse2d,camera);
-    if(raycaster.ray.intersectPlane(dragPlaneY,dragHit)){
+    if(raycaster.ray.intersectPlane(dragPlaneH,dragHit)){
+      draggedBlock.vel.set(0,0,0); // clear physics velocity while dragging
       draggedBlock.targetPos.set(
-        dragHit.x - dragOffXZ.x,
-        draggedBlock.mesh.position.y, // lock Y
-        dragHit.z - dragOffXZ.z
+        dragHit.x-dragOffXZ.x,
+        draggedBlock.mesh.position.y,
+        dragHit.z-dragOffXZ.z
       );
     }
     return;
   }
 
-  // orbiting
   if(isOrbiting){
     orb.theta=orbitSnap.theta-(e.clientX-orbitStart.x)*0.007;
     orb.phi=Math.max(0.05,Math.min(1.45,orbitSnap.phi+(e.clientY-orbitStart.y)*0.007));
@@ -356,7 +360,7 @@ window.addEventListener('mousemove',e=>{
     return;
   }
 
-  // hover
+  // hover detection
   raycaster.setFromCamera(mouse2d,camera);
   const hits=raycaster.intersectObjects(blocks.map(b=>b.mesh));
   if(hits.length){
@@ -372,10 +376,10 @@ window.addEventListener('mousemove',e=>{
     blockTag.style.left=(e.clientX+14)+'px';
     blockTag.style.top=(e.clientY-8)+'px';
     blockTag.textContent=currentMode==='explode'
-      ? `Block ${hit.mesh.userData.idx} · drag to move`
-      : `Block ${hit.mesh.userData.idx}`;
+      ?`Block ${hit.mesh.userData.idx} · drag to move`
+      :`Block ${hit.mesh.userData.idx}`;
   } else {
-    if(hoveredBlock){ setEmissive(hoveredBlock,0); hoveredBlock=null; }
+    if(hoveredBlock){setEmissive(hoveredBlock,0);hoveredBlock=null;}
     cursorEl.classList.remove('hovering');
     blockTag.style.opacity='0';
   }
@@ -383,24 +387,19 @@ window.addEventListener('mousemove',e=>{
 
 window.addEventListener('mousedown',e=>{
   if(e.button!==0) return;
-
-  // EXPLODE MODE + hovering = drag block
   if(currentMode==='explode' && hoveredBlock){
     draggedBlock=hoveredBlock;
     setEmissive(draggedBlock,0);
     cursorEl.classList.add('grabbed');
     cursorEl.classList.remove('hovering');
-    // record XZ offset so block doesn't snap to cursor
-    dragPlaneY.constant=-draggedBlock.mesh.position.y;
+    dragPlaneH.constant=-draggedBlock.mesh.position.y;
     raycaster.setFromCamera(mouse2d,camera);
-    if(raycaster.ray.intersectPlane(dragPlaneY,dragHit)){
+    if(raycaster.ray.intersectPlane(dragPlaneH,dragHit)){
       dragOffXZ.x=dragHit.x-draggedBlock.mesh.position.x;
       dragOffXZ.z=dragHit.z-draggedBlock.mesh.position.z;
     }
     return;
   }
-
-  // everything else = orbit
   isOrbiting=true;
   orbitStart={x:e.clientX,y:e.clientY};
   orbitSnap={theta:orb.theta,phi:orb.phi};
@@ -408,6 +407,9 @@ window.addEventListener('mousedown',e=>{
 
 window.addEventListener('mouseup',()=>{
   if(draggedBlock){
+    // release: trigger gravity drop
+    draggedBlock.falling=true;
+    draggedBlock.vel.set(0,0,0);
     draggedBlock.homePos.copy(draggedBlock.targetPos);
     draggedBlock=null;
     cursorEl.classList.remove('grabbed');
@@ -426,36 +428,88 @@ function setMode(mode){
   document.getElementById('btn-pile').classList.toggle('active',mode==='pile');
   document.getElementById('btn-explode').classList.toggle('active',mode==='explode');
   if(mode==='pile'){
-    blocks.forEach(b=>b.targetPos.copy(b.homePos));
+    // smooth return to pile positions, reset physics
+    blocks.forEach(b=>{
+      b.targetPos.copy(b.homePos);
+      b.falling=false;
+      b.vel.set(0,0,0);
+    });
     document.getElementById('hint').innerHTML='drag · orbit<br>scroll · zoom';
   } else {
-    if(explodeOffsets){
-      blocks.forEach((b,i)=>{
-        const off=explodeOffsets[i];
-        // always base off originalPos so repeated pile→explode is stable
-        b.targetPos.set(b.originalPos.x+off.dx, b.originalPos.y, b.originalPos.z+off.dz);
-      });
-    }
+    // block mode: stay in pile position, enable drag + physics
+    // do NOT move blocks — they start where they are
+    blocks.forEach(b=>{
+      b.targetPos.copy(b.mesh.position);
+      b.falling=false;
+      b.vel.set(0,0,0);
+    });
     document.getElementById('hint').innerHTML='click & drag blocks<br>scroll · zoom';
   }
 }
 
 // ── RESET ─────────────────────────────────────────────────────────────────────
 function resetAll(){
-  // restore every block to its original pile position
   blocks.forEach(b=>{
     b.homePos.copy(b.originalPos);
     b.targetPos.copy(b.originalPos);
+    b.falling=false;
+    b.vel.set(0,0,0);
   });
   setMode('pile');
 }
+
+// ── ANIMATION + PHYSICS ───────────────────────────────────────────────────────
+// Lightweight gravity: when a block is released (falling=true),
+// apply gravity to vel.y, bounce when hitting floor (y=0+blockHalfHeight).
+// No block-block collision — just floor bounce.
+const GRAVITY    = -2800;   // mm/s² (scaled for mm units)
+const BOUNCE     = 0.38;    // restitution
+const DRAG_XZ    = 0.88;    // horizontal damping per frame
+const SNAP_DIST  = 2;       // mm — snap threshold
+
+const clock=new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),0.05);
+
   blocks.forEach(b=>{
-    const d=b.mesh.position.distanceTo(b.targetPos);
-    if(d>0.5) b.mesh.position.lerp(b.targetPos,0.09);
-    else       b.mesh.position.copy(b.targetPos);
+    if(b===draggedBlock) return; // skip physics while dragging
+
+    if(currentMode==='explode' && b.falling){
+      // apply gravity
+      b.vel.y+=GRAVITY*dt;
+      b.vel.x*=DRAG_XZ;
+      b.vel.z*=DRAG_XZ;
+
+      b.mesh.position.x+=b.vel.x*dt;
+      b.mesh.position.y+=b.vel.y*dt;
+      b.mesh.position.z+=b.vel.z*dt;
+
+      // floor collision at block's rest Y
+      if(b.mesh.position.y<=b.floorY){
+        b.mesh.position.y=b.floorY;
+        b.vel.y*=-BOUNCE;
+        b.vel.x*=0.7;
+        b.vel.z*=0.7;
+        // stop bouncing if tiny
+        if(Math.abs(b.vel.y)<5){
+          b.vel.set(0,0,0);
+          b.falling=false;
+          b.homePos.copy(b.mesh.position);
+          b.targetPos.copy(b.mesh.position);
+        }
+      }
+
+      // sync targetPos
+      b.targetPos.copy(b.mesh.position);
+    } else {
+      // smooth lerp toward target
+      const d=b.mesh.position.distanceTo(b.targetPos);
+      if(d>SNAP_DIST) b.mesh.position.lerp(b.targetPos,0.09);
+      else            b.mesh.position.copy(b.targetPos);
+    }
   });
+
   renderer.render(scene,camera);
 }
 animate();
