@@ -227,20 +227,21 @@ async function loadAll(){
         .then(r=>{if(!r.ok)throw r.status; return r.text();})
         .then(text=>{
           const {geo,centroid}=parseOBJ(text);
+          const color=new THREE.Color(PALETTE[(i-1)%PALETTE.length]);
           const mat=new THREE.MeshStandardMaterial({
-            color:PALETTE[(i-1)%PALETTE.length],
+            color: color.clone(),
             roughness:0.5, metalness:0.05,
           });
           const mesh=new THREE.Mesh(geo,mat);
           mesh.castShadow=mesh.receiveShadow=true;
           mesh.userData.idx=i;
-          // Place mesh at Rhino world centroid (already axis-swapped)
           mesh.position.copy(centroid);
           scene.add(mesh);
           blocks.push({
             mesh,
-            homePos: centroid.clone(),      // current pile rest position
-            originalPos: centroid.clone(),  // NEVER changes — used for explode base
+            originalColor: color.clone(), // saved candy color
+            homePos: centroid.clone(),
+            originalPos: centroid.clone(),
             targetPos: centroid.clone(),
           });
         })
@@ -455,25 +456,28 @@ window.addEventListener('wheel',e=>{
 },{passive:true});
 
 // ── MODE SWITCH ───────────────────────────────────────────────────────────────
+const PILE_COLOR = new THREE.Color(0xE8E0D5); // warm off-white for pile mode
+
 function setMode(mode){
   currentMode=mode;
   document.getElementById('btn-pile').classList.toggle('active',mode==='pile');
   document.getElementById('btn-explode').classList.toggle('active',mode==='explode');
   if(mode==='pile'){
-    // smooth return to pile positions, reset physics
     blocks.forEach(b=>{
       b.targetPos.copy(b.homePos);
       b.falling=false;
       b.vel.set(0,0,0);
+      b.mesh.material.color.set(PILE_COLOR);
+      b.mesh.material.roughness=0.65;
     });
     document.getElementById('hint').innerHTML='drag · orbit<br>scroll · zoom';
   } else {
-    // block mode: stay in pile position, enable drag + physics
-    // do NOT move blocks — they start where they are
     blocks.forEach(b=>{
       b.targetPos.copy(b.mesh.position);
       b.falling=false;
       b.vel.set(0,0,0);
+      b.mesh.material.color.copy(b.originalColor);
+      b.mesh.material.roughness=0.5;
     });
     document.getElementById('hint').innerHTML='click & drag blocks<br>scroll · zoom';
   }
@@ -552,33 +556,6 @@ function animate(){
           b.vel.y=0;
           b.vel.x*=0.7;
           b.vel.z*=0.7;
-        }
-      }
-
-      // stacking: land on top of other blocks
-      if(b.vel.y<0){
-        for(let j=0;j<blocks.length;j++){
-          const other=blocks[j];
-          if(other===b||other===draggedBlock) continue;
-          const dx=b.mesh.position.x-other.mesh.position.x;
-          const dz=b.mesh.position.z-other.mesh.position.z;
-          const hDist=Math.sqrt(dx*dx+dz*dz);
-          if(hDist<(b.radius+other.radius)*0.72){
-            const stackY=other.mesh.position.y+other.radius+b.radius*0.5;
-            if(b.mesh.position.y<stackY && b.mesh.position.y>other.mesh.position.y-b.radius){
-              b.mesh.position.y=stackY;
-              if(Math.abs(b.vel.y)>SLEEP_VEL){
-                b.vel.y*=-BOUNCE*0.45;
-                b.vel.x*=FRICTION;
-                b.vel.z*=FRICTION;
-              } else {
-                b.vel.set(0,0,0);
-              }
-              // wake the block underneath so it can react
-              if(other.sleeping) wakeBlock(other);
-              break;
-            }
-          }
         }
       }
 
