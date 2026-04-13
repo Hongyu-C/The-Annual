@@ -299,6 +299,9 @@ function onAllLoaded(){
   // init physics sphere radii
   initPhysicsBodies();
 
+  // Y drag limit = 1.8x massing height
+  dragYMax = size.y * 1.8;
+
   // Fit camera
   const H=size.y;
   orb.r   = D*1.4+H*0.5;
@@ -330,9 +333,10 @@ applyOrbit();
 // ── INTERACTION ───────────────────────────────────────────────────────────────
 let isOrbiting=false, orbitStart={x:0,y:0}, orbitSnap={theta:0,phi:0};
 let hoveredBlock=null, draggedBlock=null;
-const dragPlaneH=new THREE.Plane(new THREE.Vector3(0,1,0),0); // horizontal drag plane
+let dragYMax=10000; // set after load from massing height
+const dragPlane=new THREE.Plane(); // camera-facing, updated each frame
 const dragHit=new THREE.Vector3();
-const dragOffXZ={x:0,z:0};
+const dragOffset=new THREE.Vector3(); // 3D offset from block centre to hit point
 const raycaster=new THREE.Raycaster();
 const mouse2d=new THREE.Vector2();
 const cursorEl=document.getElementById('cursor');
@@ -340,22 +344,31 @@ const blockTag=document.getElementById('block-tag');
 
 function setEmissive(b,v){ if(b) b.mesh.material.emissive.setScalar(v); }
 
+// build camera-facing plane through a given world point
+function setCameraPlane(point){
+  const camDir=new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+  dragPlane.setFromNormalAndCoplanarPoint(camDir, point);
+}
+
 window.addEventListener('mousemove',e=>{
   cursorEl.style.left=e.clientX+'px';
   cursorEl.style.top=e.clientY+'px';
   mouse2d.set((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
 
   if(draggedBlock){
-    dragPlaneH.set(new THREE.Vector3(0,1,0), -draggedBlock.mesh.position.y);
+    // rebuild plane each frame so it stays facing camera as user orbits
+    setCameraPlane(draggedBlock.mesh.position);
     raycaster.setFromCamera(mouse2d,camera);
-    if(raycaster.ray.intersectPlane(dragPlaneH,dragHit)){
+    if(raycaster.ray.intersectPlane(dragPlane,dragHit)){
       draggedBlock.vel.set(0,0,0);
-      const nx=dragHit.x-dragOffXZ.x;
-      const nz=dragHit.z-dragOffXZ.z;
-      // track drag velocity for inertia on release
+      const nx=dragHit.x-dragOffset.x;
+      const ny=Math.max(0, Math.min(dragYMax, dragHit.y-dragOffset.y));
+      const nz=dragHit.z-dragOffset.z;
+      // track velocity for inertia
       draggedBlock.dragVelX=(nx-draggedBlock.targetPos.x)*0.6+draggedBlock.dragVelX*0.4;
       draggedBlock.dragVelZ=(nz-draggedBlock.targetPos.z)*0.6+draggedBlock.dragVelZ*0.4;
-      draggedBlock.targetPos.set(nx, draggedBlock.mesh.position.y, nz);
+      draggedBlock.targetPos.set(nx, ny, nz);
     }
     return;
   }
@@ -395,22 +408,25 @@ window.addEventListener('mousemove',e=>{
 window.addEventListener('mousedown',e=>{
   if(e.button!==0) return;
   if(currentMode==='explode' && hoveredBlock){
-    hoveredBlock.squishT=1; // squish immediately on click
+    hoveredBlock.squishT=1;
     draggedBlock=hoveredBlock;
     draggedBlock.dragVelX=0;
     draggedBlock.dragVelZ=0;
     setEmissive(draggedBlock,0);
     cursorEl.classList.add('grabbed');
     cursorEl.classList.remove('hovering');
-    const blockY=draggedBlock.mesh.position.y;
-    dragPlaneH.set(new THREE.Vector3(0,1,0), -blockY);
+    // build initial camera-facing plane through block centre
+    setCameraPlane(draggedBlock.mesh.position);
     raycaster.setFromCamera(mouse2d,camera);
-    const planeHit=raycaster.ray.intersectPlane(dragPlaneH,dragHit);
+    const planeHit=raycaster.ray.intersectPlane(dragPlane,dragHit);
     if(planeHit){
-      dragOffXZ.x=dragHit.x-draggedBlock.mesh.position.x;
-      dragOffXZ.z=dragHit.z-draggedBlock.mesh.position.z;
+      dragOffset.set(
+        dragHit.x-draggedBlock.mesh.position.x,
+        dragHit.y-draggedBlock.mesh.position.y,
+        dragHit.z-draggedBlock.mesh.position.z
+      );
     } else {
-      dragOffXZ.x=0; dragOffXZ.z=0;
+      dragOffset.set(0,0,0);
     }
     return;
   }
@@ -431,8 +447,7 @@ window.addEventListener('mouseup',()=>{
     draggedBlock=null;
     cursorEl.classList.remove('grabbed');
   }
-  isOrbiting=false;
-});
+  isOrbiting=false;});
 
 window.addEventListener('wheel',e=>{
   orb.r=Math.max(20,Math.min(3000,orb.r+e.deltaY*0.8));
