@@ -555,6 +555,33 @@ function animate(){
         }
       }
 
+      // stacking: land on top of other blocks
+      if(b.vel.y<0){
+        for(let j=0;j<blocks.length;j++){
+          const other=blocks[j];
+          if(other===b||other===draggedBlock) continue;
+          const dx=b.mesh.position.x-other.mesh.position.x;
+          const dz=b.mesh.position.z-other.mesh.position.z;
+          const hDist=Math.sqrt(dx*dx+dz*dz);
+          if(hDist<(b.radius+other.radius)*0.72){
+            const stackY=other.mesh.position.y+other.radius+b.radius*0.5;
+            if(b.mesh.position.y<stackY && b.mesh.position.y>other.mesh.position.y-b.radius){
+              b.mesh.position.y=stackY;
+              if(Math.abs(b.vel.y)>SLEEP_VEL){
+                b.vel.y*=-BOUNCE*0.45;
+                b.vel.x*=FRICTION;
+                b.vel.z*=FRICTION;
+              } else {
+                b.vel.set(0,0,0);
+              }
+              // wake the block underneath so it can react
+              if(other.sleeping) wakeBlock(other);
+              break;
+            }
+          }
+        }
+      }
+
       b.targetPos.copy(b.mesh.position);
 
       // sleep check
