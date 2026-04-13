@@ -338,8 +338,8 @@ function parseOBJ(text) {
   for (const line of text.split('\n')) {
     const p = line.trim().split(/\s+/);
     if (!p[0]) continue;
-    if (p[0] === 'v') vPos.push(+p[1], +p[2], +p[3]);
-    else if (p[0] === 'vn') vNorm.push(+p[1], +p[2], +p[3]);
+    if (p[0] === 'v') vPos.push(+p[1], +p[3], -p[2]); // Rhino Z-up → Three.js Y-up
+    else if (p[0] === 'vn') vNorm.push(+p[1], +p[3], -p[2]);
     else if (p[0] === 'f') {
       const corners = p.slice(1).map(t => {
         const s = t.split('/');
