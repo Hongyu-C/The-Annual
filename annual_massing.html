@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Annual — Massing</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #EDE8E2;
+    overflow: hidden;
+    font-family: 'DM Sans', sans-serif;
+    cursor: none;
+  }
+
+  canvas { display: block; }
+
+  /* custom cursor */
+  #cursor {
+    position: fixed;
+    width: 12px;
+    height: 12px;
+    background: #1a1a1a;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1000;
+    transform: translate(-50%, -50%);
+    transition: transform 0.15s ease, background 0.2s ease, width 0.2s ease, height 0.2s ease;
+  }
+  #cursor.hovering {
+    width: 32px;
+    height: 32px;
+    background: rgba(26,26,26,0.15);
+    border: 1.5px solid #1a1a1a;
+  }
+  #cursor.grabbed {
+    width: 20px;
+    height: 20px;
+    background: #E8635A;
+  }
+
+  /* nav */
+  #nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 40px;
+    pointer-events: none;
+  }
+  .nav-logo { pointer-events: auto; }
+  .nav-logo-sub {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    color: #aaa;
+  }
+  .nav-logo-main {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: #1a1a1a;
+    margin-top: 2px;
+  }
+  .nav-links {
+    pointer-events: auto;
+    display: flex;
+    gap: 8px;
+  }
+  .nav-link {
+    background: rgba(255,255,255,.88);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(0,0,0,.08);
+    padding: 8px 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #666;
+    cursor: pointer;
+    border-radius: 100px;
+    text-decoration: none;
+    transition: all .2s;
+  }
+  .nav-link.active {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+  .nav-link:hover:not(.active) { background: #fff; color: #1a1a1a; }
+
+  /* mode toggle */
+  #mode-toggle {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: rgba(255,255,255,.9);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: 100px;
+    padding: 4px;
+    pointer-events: auto;
+  }
+  .mode-btn {
+    padding: 10px 24px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #999;
+    border: none;
+    background: transparent;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: all .3s ease;
+  }
+  .mode-btn.active {
+    background: #1a1a1a;
+    color: #fff;
+  }
+
+  /* hint */
+  #hint {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    z-index: 200;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: #bbb;
+    text-align: right;
+    line-height: 1.8;
+    pointer-events: none;
+    transition: opacity .5s;
+  }
+
+  /* loading */
+  #loading {
+    position: fixed;
+    inset: 0;
+    background: #EDE8E2;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    transition: opacity .8s ease;
+  }
+  .loading-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    color: #1a1a1a;
+    letter-spacing: -.01em;
+  }
+  .loading-bar-wrap {
+    width: 200px;
+    height: 2px;
+    background: rgba(0,0,0,.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .loading-bar {
+    height: 100%;
+    background: #E8635A;
+    border-radius: 2px;
+    width: 0%;
+    transition: width .3s ease;
+  }
+  .loading-count {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: #aaa;
+  }
+
+  /* info tag — appears on hover */
+  #block-tag {
+    position: fixed;
+    z-index: 300;
+    background: #1a1a1a;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 100px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+    white-space: nowrap;
+  }
+
+  /* mode label */
+  #mode-label {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Syne', sans-serif;
+    font-size: 80px;
+    font-weight: 800;
+    color: rgba(26,26,26,.04);
+    letter-spacing: -.03em;
+    pointer-events: none;
+    z-index: 0;
+    text-transform: uppercase;
+    transition: opacity .5s;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="loading">
+  <div class="loading-title">The Annual</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loading-bar"></div></div>
+  <div class="loading-count" id="loading-count">Loading blocks 0 / 37</div>
+</div>
+
+<div id="nav">
+  <div class="nav-logo">
+    <div class="nav-logo-sub">The Annual</div>
+    <div class="nav-logo-main">Massing</div>
+  </div>
+  <div class="nav-links">
+    <a href="annual_program.html" class="nav-link">Program</a>
+    <a href="annual_massing.html" class="nav-link active">Massing</a>
+  </div>
+</div>
+
+<div id="mode-label">Pile</div>
+
+<div id="mode-toggle">
+  <button class="mode-btn active" id="btn-pile" onclick="setMode('pile')">↳ Pile</button>
+  <button class="mode-btn" id="btn-explode" onclick="setMode('explode')">⊹ Blocks</button>
+</div>
+
+<div id="hint">
+  drag · orbit<br>scroll · zoom
+</div>
+
+<div id="block-tag"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const TOTAL = 37;
+const BASE_URL = 'https://raw.githubusercontent.com/Hongyu-C/The-Annual/main/models/';
+const PALETTE = [0xE8635A, 0xF2C94C, 0x9B8EC4, 0xF4A7B9, 0x5BC8C8, 0xA8D8A8, 0xF7956E, 0xB8D4E8];
+
+// ── RENDERER ────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.insertBefore(renderer.domElement, document.getElementById('nav'));
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xEDE8E2);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.01, 2000);
+camera.position.set(0, 30, 80);
+camera.lookAt(0, 0, 0);
+
+// ── LIGHTS ───────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+const sun = new THREE.DirectionalLight(0xfff5e8, 0.7);
+sun.position.set(40, 80, 50);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 400;
+sun.shadow.camera.left = sun.shadow.camera.bottom = -120;
+sun.shadow.camera.right = sun.shadow.camera.top = 120;
+sun.shadow.bias = -0.001;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xddeeff, 0.3);
+fill.position.set(-30, 20, -40);
+scene.add(fill);
+
+// ── FLOOR ────────────────────────────────────────────────────────────────────
+const floorGeo = new THREE.PlaneGeometry(500, 500);
+const floorMat = new THREE.ShadowMaterial({ opacity: 0.06 });
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -0.5;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// subtle grid
+const gridHelper = new THREE.GridHelper(200, 40, 0xcccccc, 0xdddddd);
+gridHelper.position.y = -0.48;
+gridHelper.material.opacity = 0.3;
+gridHelper.material.transparent = true;
+scene.add(gridHelper);
+
+// ── ORBIT CONTROLS (manual) ───────────────────────────────────────────────
+let orb = { theta: 0.3, phi: 1.1, r: 80 };
+let orbTarget = { x: 0, y: 5, z: 0 };
+let isDraggingOrbit = false;
+let orbitStart = { x: 0, y: 0 };
+let orbitPrev = { theta: orb.theta, phi: orb.phi };
+
+function applyOrbit() {
+  camera.position.set(
+    orbTarget.x + orb.r * Math.sin(orb.phi) * Math.sin(orb.theta),
+    orbTarget.y + orb.r * Math.cos(orb.phi),
+    orbTarget.z + orb.r * Math.sin(orb.phi) * Math.cos(orb.theta)
+  );
+  camera.lookAt(orbTarget.x, orbTarget.y, orbTarget.z);
+}
+applyOrbit();
+
+// ── OBJ PARSER ───────────────────────────────────────────────────────────────
+function parseOBJ(text) {
+  const vPos = [], vNorm = [];
+  const posOut = [], normOut = [];
+  for (const line of text.split('\n')) {
+    const p = line.trim().split(/\s+/);
+    if (!p[0]) continue;
+    if (p[0] === 'v') vPos.push(+p[1], +p[2], +p[3]);
+    else if (p[0] === 'vn') vNorm.push(+p[1], +p[2], +p[3]);
+    else if (p[0] === 'f') {
+      const corners = p.slice(1).map(t => {
+        const s = t.split('/');
+        const vi = (+s[0]) - 1;
+        const ni = s.length >= 3 && s[2] !== '' ? (+s[2]) - 1 : vi;
+        return { vi, ni };
+      });
+      for (let i = 1; i < corners.length - 1; i++) {
+        for (const c of [corners[0], corners[i], corners[i + 1]]) {
+          posOut.push(vPos[c.vi * 3], vPos[c.vi * 3 + 1], vPos[c.vi * 3 + 2]);
+          if (vNorm.length > 0) normOut.push(vNorm[c.ni * 3], vNorm[c.ni * 3 + 1], vNorm[c.ni * 3 + 2]);
+        }
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(posOut), 3));
+  if (normOut.length > 0) {
+    geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normOut), 3));
+  } else {
+    geo.computeVertexNormals();
+  }
+  return geo;
+}
+
+// ── BLOCK STATE ───────────────────────────────────────────────────────────────
+const blocks = []; // { mesh, homePos, homeRot, targetPos, targetRot, isOut, index }
+let currentMode = 'pile'; // 'pile' | 'explode'
+let hoveredBlock = null;
+let draggedBlock = null;
+let dragOffset = new THREE.Vector3();
+
+// ── LOAD ALL OBJ ────────────────────────────────────────────────────────────
+let loaded = 0;
+const loadingBar = document.getElementById('loading-bar');
+const loadingCount = document.getElementById('loading-count');
+
+async function loadAll() {
+  const promises = [];
+  for (let i = 1; i <= TOTAL; i++) {
+    const idx = String(i).padStart(2, '0');
+    promises.push(
+      fetch(`${BASE_URL}Object_${idx}.obj`)
+        .then(r => r.text())
+        .then(text => {
+          const geo = parseOBJ(text);
+          const color = PALETTE[(i - 1) % PALETTE.length];
+          const mat = new THREE.MeshStandardMaterial({
+            color,
+            roughness: 0.55,
+            metalness: 0.05,
+          });
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          mesh.userData.index = i;
+          mesh.userData.blockName = `Object_${idx}`;
+
+          // home = exact position from OBJ world coords
+          const homePos = new THREE.Vector3();
+          const homeRot = new THREE.Euler();
+
+          blocks.push({
+            mesh,
+            homePos: homePos.clone(),
+            homeRot: homeRot.clone(),
+            targetPos: homePos.clone(),
+            targetRot: homeRot.clone(),
+            currentPos: homePos.clone(),
+            isOut: false,
+            index: i,
+            wobblePhase: Math.random() * Math.PI * 2,
+            wobbleAmp: 0,
+          });
+          scene.add(mesh);
+
+          loaded++;
+          const pct = Math.round((loaded / TOTAL) * 100);
+          loadingBar.style.width = pct + '%';
+          loadingCount.textContent = `Loading blocks ${loaded} / ${TOTAL}`;
+        })
+        .catch(e => {
+          console.warn(`Failed to load Object_${idx}.obj`, e);
+          loaded++;
+          loadingBar.style.width = Math.round((loaded / TOTAL) * 100) + '%';
+        })
+    );
+  }
+  await Promise.all(promises);
+
+  // center the whole massing
+  const box = new THREE.Box3();
+  blocks.forEach(b => box.expandByObject(b.mesh));
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+
+  blocks.forEach(b => {
+    b.mesh.position.sub(center);
+    b.mesh.position.y += size.y / 2;
+    b.homePos.copy(b.mesh.position);
+    b.targetPos.copy(b.mesh.position);
+    b.currentPos.copy(b.mesh.position);
+  });
+
+  // adjust orbit radius to fit
+  orb.r = Math.max(size.x, size.y, size.z) * 2.2;
+  orbTarget.y = size.y * 0.3;
+  applyOrbit();
+
+  // hide loading
+  const loadingEl = document.getElementById('loading');
+  loadingEl.style.opacity = '0';
+  setTimeout(() => loadingEl.remove(), 800);
+}
+
+loadAll();
+
+// ── MODE SWITCHING ─────────────────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('btn-pile').classList.toggle('active', mode === 'pile');
+  document.getElementById('btn-explode').classList.toggle('active', mode === 'explode');
+  document.getElementById('mode-label').textContent = mode === 'pile' ? 'Pile' : 'Blocks';
+
+  if (mode === 'pile') {
+    // return all blocks home
+    blocks.forEach(b => {
+      b.targetPos.copy(b.homePos);
+      b.isOut = false;
+    });
+    document.getElementById('hint').innerHTML = 'drag · orbit<br>scroll · zoom';
+  } else {
+    // explode outward from center
+    const spreadRadius = orb.r * 0.25;
+    blocks.forEach((b, i) => {
+      const angle = (i / blocks.length) * Math.PI * 2;
+      const layer = Math.floor(i / 8);
+      const r = spreadRadius * (0.5 + layer * 0.4) * (0.8 + Math.random() * 0.4);
+      b.targetPos.set(
+        b.homePos.x + Math.cos(angle) * r,
+        b.homePos.y + (Math.random() - 0.3) * spreadRadius * 0.5,
+        b.homePos.z + Math.sin(angle) * r
+      );
+    });
+    document.getElementById('hint').innerHTML = 'click & drag blocks<br>scroll · zoom';
+  }
+}
+
+// ── RAYCASTING ────────────────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const cursor = document.getElementById('cursor');
+const blockTag = document.getElementById('block-tag');
+
+let mouseScreen = { x: 0, y: 0 };
+
+document.addEventListener('mousemove', e => {
+  mouseScreen.x = e.clientX;
+  mouseScreen.y = e.clientY;
+  cursor.style.left = e.clientX + 'px';
+  cursor.style.top = e.clientY + 'px';
+
+  mouse.x = (e.clientX / innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+
+  if (draggedBlock) {
+    // drag block along a plane
+    raycaster.setFromCamera(mouse, camera);
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion), -draggedBlock.mesh.position.dot(new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion)));
+    const hitPoint = new THREE.Vector3();
+    raycaster.ray.intersectPlane(dragPlane, hitPoint);
+    if (hitPoint) {
+      draggedBlock.targetPos.copy(hitPoint.sub(dragOffset));
+    }
+    return;
+  }
+
+  if (isDraggingOrbit) {
+    const dx = e.clientX - orbitStart.x;
+    const dy = e.clientY - orbitStart.y;
+    orb.theta = orbitPrev.theta - dx * 0.005;
+    orb.phi = Math.max(0.15, Math.min(Math.PI * 0.48, orbitPrev.phi + dy * 0.005));
+    applyOrbit();
+    return;
+  }
+
+  // hover detection
+  raycaster.setFromCamera(mouse, camera);
+  const meshes = blocks.map(b => b.mesh);
+  const hits = raycaster.intersectObjects(meshes);
+
+  if (hits.length > 0) {
+    const hit = blocks.find(b => b.mesh === hits[0].object);
+    if (hit !== hoveredBlock) {
+      if (hoveredBlock) {
+        hoveredBlock.wobbleAmp = 0;
+      }
+      hoveredBlock = hit;
+      if (hit) hit.wobbleAmp = 1;
+    }
+    cursor.classList.add('hovering');
+    blockTag.style.opacity = '1';
+    blockTag.style.left = (e.clientX + 16) + 'px';
+    blockTag.style.top = (e.clientY - 8) + 'px';
+    blockTag.textContent = currentMode === 'explode' ? `Block ${hit.index} · drag to move` : `Block ${hit.index}`;
+  } else {
+    if (hoveredBlock) hoveredBlock.wobbleAmp = 0;
+    hoveredBlock = null;
+    cursor.classList.remove('hovering');
+    blockTag.style.opacity = '0';
+  }
+});
+
+document.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+
+  if (hoveredBlock && currentMode === 'explode') {
+    draggedBlock = hoveredBlock;
+    cursor.classList.add('grabbed');
+    cursor.classList.remove('hovering');
+
+    // compute drag offset
+    raycaster.setFromCamera(mouse, camera);
+    const meshes = blocks.map(b => b.mesh);
+    const hits = raycaster.intersectObjects(meshes);
+    if (hits.length > 0) {
+      dragOffset.copy(hits[0].point).sub(draggedBlock.mesh.position);
+    }
+    return;
+  }
+
+  // orbit drag
+  isDraggingOrbit = true;
+  orbitStart = { x: e.clientX, y: e.clientY };
+  orbitPrev = { theta: orb.theta, phi: orb.phi };
+});
+
+document.addEventListener('mouseup', () => {
+  if (draggedBlock) {
+    draggedBlock.homePos.copy(draggedBlock.targetPos); // new home
+    draggedBlock = null;
+    cursor.classList.remove('grabbed');
+  }
+  isDraggingOrbit = false;
+});
+
+document.addEventListener('wheel', e => {
+  orb.r = Math.max(5, Math.min(300, orb.r + e.deltaY * 0.05));
+  applyOrbit();
+}, { passive: true });
+
+// ── ANIMATION ─────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+const tmpPos = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  const dt = clock.getDelta ? clock.getDelta() : 0.016;
+
+  blocks.forEach(b => {
+    // lerp position toward target (spring feel)
+    b.mesh.position.lerp(b.targetPos, 0.08);
+
+    // idle wobble in pile mode (soft inflate/pulse feel)
+    if (currentMode === 'pile') {
+      const wobble = Math.sin(t * 0.6 + b.wobblePhase) * 0.003;
+      b.mesh.scale.setScalar(1 + wobble + b.wobbleAmp * 0.025 * Math.sin(t * 8 + b.wobblePhase));
+    } else {
+      // in explode mode, hover bounce
+      const hoverBounce = b === hoveredBlock ? Math.sin(t * 6) * 0.015 : 0;
+      b.mesh.scale.setScalar(1 + hoverBounce);
+    }
+
+    // decay wobble amp
+    if (b.wobbleAmp > 0) b.wobbleAmp *= 0.97;
+  });
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── RESIZE ───────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
