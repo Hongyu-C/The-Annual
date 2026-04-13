@@ -140,14 +140,15 @@ const grid=new THREE.GridHelper(2000,80,0xcccccc,0xdddddd);
 grid.material.opacity=0.18; grid.material.transparent=true; scene.add(grid);
 
 // ── OBJ PARSER ───────────────────────────────────────────────────────────────
-// Rhino Z-up → Three.js Y-up:  X→X,  Z→Y,  Y→-Z
+// Try both axis conventions — we'll auto-detect after load which way is up
+// For now: keep Rhino native coords (X,Y,Z), centre+orient after load
 function parseOBJ(text){
   const rv=[],rn=[],pos=[],nrm=[];
   for(const raw of text.split('\n')){
     const p=raw.trim().split(/\s+/);
     if(!p[0])continue;
-    if(p[0]==='v' ){rv.push(+p[1],-p[3],+p[2]);}
-    else if(p[0]==='vn'){rn.push(+p[1],-p[3],+p[2]);}
+    if(p[0]==='v' ){rv.push(+p[1],+p[2],+p[3]);}       // raw Rhino coords
+    else if(p[0]==='vn'){rn.push(+p[1],+p[2],+p[3]);}
     else if(p[0]==='f'){
       const cs=p.slice(1).map(t=>{
         const s=t.split('/');
@@ -171,10 +172,9 @@ function parseOBJ(text){
 // ── BLOCK STORE ──────────────────────────────────────────────────────────────
 const blocks=[];
 let currentMode='pile';
-
-// squish state per block — for soft-body feel on hover
-// We animate the material emissive + a tiny Y-scale squish only on mouseenter
-// Scale is reset immediately on mouseleave so raycaster is unaffected next frame
+// Store fixed explode offsets per block so re-entering explode mode
+// doesn't re-randomise (fixes the "explode on pile→explode" bug)
+let explodeOffsets=null;
 
 // ── LOAD ─────────────────────────────────────────────────────────────────────
 let loaded=0;
@@ -202,10 +202,6 @@ async function loadAll(){
             mesh,
             homePos:new THREE.Vector3(),
             targetPos:new THREE.Vector3(),
-            wobblePhase:Math.random()*Math.PI*2,
-            // squish animation state
-            squishT:0,     // 0→1 progress of squish
-            squishing:false,
           });
         })
         .catch(e=>console.warn(`Object_${idx}.obj failed:`,e))
@@ -222,34 +218,100 @@ async function loadAll(){
 
 function onAllLoaded(){
   if(!blocks.length){console.error('no blocks');return;}
+
+  // ── Compute bounding box in RAW Rhino coords ──────────────────────────────
   const box=new THREE.Box3();
   blocks.forEach(b=>box.expandByObject(b.mesh));
   const center=new THREE.Vector3(); box.getCenter(center);
   const size=new THREE.Vector3();   box.getSize(size);
 
-  // centre XZ, sit on Y=0
+  // Rhino is Z-up. After load with raw coords:
+  //   size.x = width (feet), size.y = depth (feet), size.z = HEIGHT (feet)
+  // We want height to go up in Three's Y axis.
+  // Apply transform: threeX=rhinoX-cx, threeY=rhinoZ-minZ, threeZ=-(rhinoY-cy)
   blocks.forEach(b=>{
-    b.mesh.position.x-=center.x;
-    b.mesh.position.y-=box.min.y;
-    b.mesh.position.z-=center.z;
+    const p=b.mesh.position;
+    const rx=p.x-center.x;
+    const ry=p.y-center.y;
+    const rz=p.z;
+    b.mesh.position.set(rx, rz-box.min.z, -ry);
     b.homePos.copy(b.mesh.position);
     b.targetPos.copy(b.mesh.position);
   });
 
+  // Also transform all vertex positions in geometry
+  blocks.forEach(b=>{
+    const pa=b.mesh.geometry.attributes.position;
+    for(let i=0;i<pa.count;i++){
+      const rx=pa.getX(i)-center.x;
+      const ry=pa.getY(i)-center.y;
+      const rz=pa.getZ(i)-box.min.z;
+      pa.setXYZ(i, rx, rz, -ry);
+    }
+    pa.needsUpdate=true;
+    b.mesh.geometry.computeVertexNormals();
+    b.mesh.geometry.computeBoundingBox();
+    // Reset mesh position to 0 since verts now encode world pos
+    b.mesh.position.set(0,0,0);
+    b.homePos.set(0,0,0);
+    b.targetPos.set(0,0,0);
+  });
+
+  // ── Now compute correct bbox after transform ──────────────────────────────
+  const box2=new THREE.Box3();
+  blocks.forEach(b=>box2.expandByObject(b.mesh));
+  const center2=new THREE.Vector3(); box2.getCenter(center2);
+  const size2=new THREE.Vector3();   box2.getSize(size2);
+
+  // Shift so bottom sits on y=0, centred on x/z
+  blocks.forEach(b=>{
+    const pa=b.mesh.geometry.attributes.position;
+    for(let i=0;i<pa.count;i++){
+      pa.setXYZ(i,
+        pa.getX(i)-center2.x,
+        pa.getY(i)-box2.min.y,
+        pa.getZ(i)-center2.z
+      );
+    }
+    pa.needsUpdate=true;
+    b.mesh.geometry.computeBoundingBox();
+    // Store centroid of this block's geometry as homePos
+    const bb=new THREE.Box3().setFromObject(b.mesh);
+    const c=new THREE.Vector3(); bb.getCenter(c);
+    b.homePos.copy(c);
+    b.targetPos.copy(c);
+    // mesh position stays at 0 — all position is baked into geometry
+    // BUT we need to be able to move blocks, so let's unbake:
+    // shift verts to be centred at origin, use mesh.position for placement
+    for(let i=0;i<pa.count;i++){
+      pa.setXYZ(i, pa.getX(i)-c.x, pa.getY(i)-c.y, pa.getZ(i)-c.z);
+    }
+    pa.needsUpdate=true;
+    b.mesh.geometry.computeVertexNormals();
+    b.mesh.position.copy(c);
+    b.homePos.copy(c);
+    b.targetPos.copy(c);
+  });
+
   floor.position.y=0; grid.position.y=1;
 
-  // ── Camera: look slightly from above and front ───────────────────────────
-  // phi=0 = straight down, phi=PI/2 = horizontal
-  // We want a nice 3/4 isometric-ish view → phi ~0.7
-  const H=size.y, D=Math.max(size.x,size.z);
-  orb.r     = D*1.4+H*0.6;
-  orb.phi   = 0.72;   // ~41° above horizontal — good isometric view
-  orb.theta = 0.55;
-  orbTarget.set(0,H*0.38,0);
+  // Pre-compute explode offsets (fixed, not re-randomised)
+  const H2=size2.y, D2=Math.max(size2.x,size2.z);
+  const spread=D2*0.8;
+  explodeOffsets=blocks.map((_,i)=>{
+    const angle=(i/blocks.length)*Math.PI*2+(i%3)*0.4;
+    const r=spread*(0.4+((i*7)%10)/10*0.8);
+    return new THREE.Vector3(Math.cos(angle)*r, 0, Math.sin(angle)*r);
+  });
+
+  // Camera
+  orb.r=D2*1.5+H2*0.5;
+  orb.phi=0.72;
+  orb.theta=0.55;
+  orbTarget.set(0,H2*0.38,0);
   applyOrbit();
 
-  // update sun shadow to cover actual massing size
-  const halfD=Math.max(D,H)*0.7;
+  const halfD=Math.max(D2,H2)*0.7;
   sun.shadow.camera.left=sun.shadow.camera.bottom=-halfD;
   sun.shadow.camera.right=sun.shadow.camera.top=halfD;
   sun.shadow.camera.updateProjectionMatrix();
@@ -261,19 +323,15 @@ function onAllLoaded(){
 
 loadAll();
 
-// ── ORBIT — full spherical, no gimbal lock ─────────────────────────────────
-// phi: 0.05 (near top-down) → 1.45 (near horizontal, slightly below equator)
-// theta: full 360°
-const orb={theta:0.55, phi:0.72, r:500};
+// ── ORBIT ─────────────────────────────────────────────────────────────────────
+const orb={theta:0.55,phi:0.72,r:500};
 const orbTarget=new THREE.Vector3(0,80,0);
 
 function applyOrbit(){
-  const sinP=Math.sin(orb.phi), cosP=Math.cos(orb.phi);
-  const sinT=Math.sin(orb.theta),cosT=Math.cos(orb.theta);
   camera.position.set(
-    orbTarget.x+orb.r*sinP*sinT,
-    orbTarget.y+orb.r*cosP,
-    orbTarget.z+orb.r*sinP*cosT
+    orbTarget.x+orb.r*Math.sin(orb.phi)*Math.sin(orb.theta),
+    orbTarget.y+orb.r*Math.cos(orb.phi),
+    orbTarget.z+orb.r*Math.sin(orb.phi)*Math.cos(orb.theta)
   );
   camera.lookAt(orbTarget);
 }
@@ -282,7 +340,8 @@ applyOrbit();
 // ── INTERACTION ──────────────────────────────────────────────────────────────
 let isOrbiting=false, orbitStart={x:0,y:0}, orbitSnap={theta:0,phi:0};
 let hoveredBlock=null, draggedBlock=null;
-const dragPlane=new THREE.Plane();
+// Use a Y=constant horizontal plane for dragging — much more stable than camera-facing plane
+const dragY=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const dragHit=new THREE.Vector3();
 const dragOff=new THREE.Vector3();
 const raycaster=new THREE.Raycaster();
@@ -290,7 +349,6 @@ const mouse2d=new THREE.Vector2();
 const cursorEl=document.getElementById('cursor');
 const blockTag=document.getElementById('block-tag');
 
-// helper: set emissive safely
 function setEmissive(block,v){
   if(block&&block.mesh.material) block.mesh.material.emissive.setScalar(v);
 }
@@ -300,48 +358,47 @@ window.addEventListener('mousemove',e=>{
   cursorEl.style.top=e.clientY+'px';
   mouse2d.set((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
 
-  // ── dragging ──────────────────────────────────────────────────────────────
   if(draggedBlock){
+    // drag on horizontal plane at block's Y height — no flying away
+    dragY.constant=-draggedBlock.homePos.y;
     raycaster.setFromCamera(mouse2d,camera);
-    if(raycaster.ray.intersectPlane(dragPlane,dragHit))
-      draggedBlock.targetPos.copy(dragHit.clone().sub(dragOff));
+    if(raycaster.ray.intersectPlane(dragY,dragHit)){
+      draggedBlock.targetPos.set(
+        dragHit.x-dragOff.x,
+        draggedBlock.homePos.y,   // lock Y — block stays at its height
+        dragHit.z-dragOff.z
+      );
+    }
     return;
   }
 
-  // ── orbiting ──────────────────────────────────────────────────────────────
   if(isOrbiting){
-    const dx=e.clientX-orbitStart.x;
-    const dy=e.clientY-orbitStart.y;
-    orb.theta=orbitSnap.theta-dx*0.007;
-    // full vertical range: 0.05 (top-down) to 1.45 (low angle)
-    orb.phi=Math.max(0.05,Math.min(1.45,orbitSnap.phi+dy*0.007));
+    orb.theta=orbitSnap.theta-(e.clientX-orbitStart.x)*0.007;
+    orb.phi=Math.max(0.05,Math.min(1.45,orbitSnap.phi+(e.clientY-orbitStart.y)*0.007));
     applyOrbit();
     return;
   }
 
-  // ── hover detection ───────────────────────────────────────────────────────
+  // hover
   raycaster.setFromCamera(mouse2d,camera);
-  const meshList=blocks.map(b=>b.mesh);
-  const hits=raycaster.intersectObjects(meshList);
-
+  const hits=raycaster.intersectObjects(blocks.map(b=>b.mesh));
   if(hits.length){
     const hit=blocks.find(b=>b.mesh===hits[0].object);
     if(!hit)return;
     if(hit!==hoveredBlock){
       setEmissive(hoveredBlock,0);
       hoveredBlock=hit;
-      setEmissive(hit,0.1);
+      setEmissive(hit,0.12);
     }
     cursorEl.classList.add('hovering');
     blockTag.style.opacity='1';
     blockTag.style.left=(e.clientX+14)+'px';
     blockTag.style.top=(e.clientY-8)+'px';
-    // pile mode: no interaction label; explode mode: show drag hint
     blockTag.textContent=currentMode==='explode'
       ?`Block ${hit.mesh.userData.idx} · drag to move`
       :`Block ${hit.mesh.userData.idx}`;
   } else {
-    if(hoveredBlock){ setEmissive(hoveredBlock,0); hoveredBlock=null; }
+    if(hoveredBlock){setEmissive(hoveredBlock,0);hoveredBlock=null;}
     cursorEl.classList.remove('hovering');
     blockTag.style.opacity='0';
   }
@@ -350,23 +407,26 @@ window.addEventListener('mousemove',e=>{
 window.addEventListener('mousedown',e=>{
   if(e.button!==0)return;
 
-  // only allow block drag in explode mode
-  if(hoveredBlock && currentMode==='explode'){
+  // explode mode + hovering a block = drag that block
+  if(currentMode==='explode' && hoveredBlock){
     draggedBlock=hoveredBlock;
     setEmissive(draggedBlock,0);
     cursorEl.classList.add('grabbed');
     cursorEl.classList.remove('hovering');
-    // build drag plane facing camera through block centre
-    const camDir=new THREE.Vector3();
-    camera.getWorldDirection(camDir);
-    dragPlane.setFromNormalAndCoplanarPoint(camDir,draggedBlock.mesh.position);
+    // compute XZ offset so block doesn't snap under cursor
+    dragY.constant=-draggedBlock.mesh.position.y;
     raycaster.setFromCamera(mouse2d,camera);
-    if(raycaster.ray.intersectPlane(dragPlane,dragHit))
-      dragOff.copy(dragHit.clone().sub(draggedBlock.mesh.position));
+    if(raycaster.ray.intersectPlane(dragY,dragHit)){
+      dragOff.set(
+        dragHit.x-draggedBlock.mesh.position.x,
+        0,
+        dragHit.z-draggedBlock.mesh.position.z
+      );
+    }
     return;
   }
 
-  // otherwise orbit
+  // pile mode, or explode mode not on a block = orbit
   isOrbiting=true;
   orbitStart={x:e.clientX,y:e.clientY};
   orbitSnap={theta:orb.theta,phi:orb.phi};
@@ -374,14 +434,14 @@ window.addEventListener('mousedown',e=>{
 
 window.addEventListener('mouseup',()=>{
   if(draggedBlock){
-    draggedBlock.homePos.copy(draggedBlock.targetPos); // new rest position
+    // update homePos so pile mode returns here, not original position
+    draggedBlock.homePos.copy(draggedBlock.targetPos);
     draggedBlock=null;
     cursorEl.classList.remove('grabbed');
   }
   isOrbiting=false;
 });
 
-// scroll = zoom (adjust orbit radius)
 window.addEventListener('wheel',e=>{
   orb.r=Math.max(20,Math.min(3000,orb.r+e.deltaY*0.8));
   applyOrbit();
@@ -394,48 +454,34 @@ function setMode(mode){
   document.getElementById('btn-explode').classList.toggle('active',mode==='explode');
 
   if(mode==='pile'){
-    // every block returns home
-    blocks.forEach(b=>{ b.targetPos.copy(b.homePos); });
+    blocks.forEach(b=>b.targetPos.copy(b.homePos));
     document.getElementById('hint').innerHTML='drag · orbit<br>scroll · zoom';
   } else {
-    // spread blocks outward from massing centre on XZ plane
-    const box=new THREE.Box3();
-    blocks.forEach(b=>box.expandByPoint(b.homePos));
-    const sz=new THREE.Vector3(); box.getSize(sz);
-    const spread=Math.max(sz.x,sz.z)*0.75;
-
-    blocks.forEach((b,i)=>{
-      const angle=(i/blocks.length)*Math.PI*2+(Math.random()-0.5)*0.5;
-      const r=spread*(0.45+Math.random()*0.9);
-      b.targetPos.set(
-        b.homePos.x+Math.cos(angle)*r,
-        b.homePos.y,                        // keep original height
-        b.homePos.z+Math.sin(angle)*r
-      );
-    });
+    // Use pre-computed fixed offsets — no re-randomisation
+    if(explodeOffsets){
+      blocks.forEach((b,i)=>{
+        b.targetPos.set(
+          b.homePos.x+(explodeOffsets[i]?explodeOffsets[i].x:0),
+          b.homePos.y,
+          b.homePos.z+(explodeOffsets[i]?explodeOffsets[i].z:0)
+        );
+      });
+    }
     document.getElementById('hint').innerHTML='click & drag blocks<br>scroll · zoom';
   }
 }
 
 // ── ANIMATION ─────────────────────────────────────────────────────────────────
 const clock=new THREE.Clock();
-
 function animate(){
   requestAnimationFrame(animate);
-  const dt=Math.min(clock.getDelta(),0.05); // cap dt to avoid huge jumps
-
+  clock.getDelta(); // consume delta
   blocks.forEach(b=>{
-    // ── position lerp — snap once close ──────────────────────────────────
     const dist=b.mesh.position.distanceTo(b.targetPos);
-    if(dist>1){
-      b.mesh.position.lerp(b.targetPos,0.09);
-    } else {
-      b.mesh.position.copy(b.targetPos);
-    }
-    // scale always exactly 1 — no animation on scale, keeps raycaster stable
+    if(dist>0.5) b.mesh.position.lerp(b.targetPos,0.09);
+    else b.mesh.position.copy(b.targetPos);
     b.mesh.scale.set(1,1,1);
   });
-
   renderer.render(scene,camera);
 }
 animate();
