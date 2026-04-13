@@ -9,7 +9,6 @@
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:#EDE8E2; overflow:hidden; font-family:'DM Sans',sans-serif; cursor:none; }
 canvas { display:block; position:fixed; top:0; left:0; }
-
 #cursor {
   position:fixed; width:12px; height:12px; background:#1a1a1a;
   border-radius:50%; pointer-events:none; z-index:1000;
@@ -18,7 +17,6 @@ canvas { display:block; position:fixed; top:0; left:0; }
 }
 #cursor.hovering { width:30px; height:30px; background:rgba(26,26,26,.08); border:1.5px solid #1a1a1a; }
 #cursor.grabbed  { width:18px; height:18px; background:#E8635A; border:none; }
-
 #nav {
   position:fixed; top:0; left:0; right:0; z-index:200;
   display:flex; align-items:center; justify-content:space-between;
@@ -36,7 +34,6 @@ canvas { display:block; position:fixed; top:0; left:0; }
 }
 .nav-link.active { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
 .nav-link:hover:not(.active) { background:#fff; color:#1a1a1a; }
-
 #mode-toggle {
   position:fixed; bottom:40px; left:50%; transform:translateX(-50%);
   z-index:200; display:flex;
@@ -50,13 +47,11 @@ canvas { display:block; position:fixed; top:0; left:0; }
   cursor:pointer; transition:all .3s;
 }
 .mode-btn.active { background:#1a1a1a; color:#fff; }
-
 #hint {
   position:fixed; bottom:44px; right:40px; z-index:200;
   font-size:10px; letter-spacing:.15em; text-transform:uppercase;
   color:#bbb; text-align:right; line-height:1.9; pointer-events:none;
 }
-
 #loading {
   position:fixed; inset:0; background:#EDE8E2; z-index:500;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
@@ -66,7 +61,6 @@ canvas { display:block; position:fixed; top:0; left:0; }
 .loading-bar-wrap { width:180px; height:2px; background:rgba(0,0,0,.08); border-radius:2px; overflow:hidden; }
 .loading-bar { height:100%; background:#E8635A; border-radius:2px; width:0%; transition:width .2s; }
 .loading-count { font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:#aaa; }
-
 #block-tag {
   position:fixed; z-index:300; background:#1a1a1a; color:#fff;
   font-size:10px; letter-spacing:.12em; text-transform:uppercase;
@@ -101,12 +95,11 @@ canvas { display:block; position:fixed; top:0; left:0; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ── CONFIG ───────────────────────────────────────────────────────────────────
 const TOTAL    = 37;
 const BASE_URL = 'https://raw.githubusercontent.com/Hongyu-C/The-Annual/main/models/';
 const PALETTE  = [0xE8635A,0xF2C94C,0x9B8EC4,0xF4A7B9,0x5BC8C8,0xA8D8A8,0xF7956E,0xB8D4E8];
 
-// ── RENDERER ─────────────────────────────────────────────────────────────────
+// ── RENDERER ──────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -118,65 +111,108 @@ const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xEDE8E2);
 const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,0.1,5000);
 
-// ── LIGHTS ───────────────────────────────────────────────────────────────────
+// ── LIGHTS ────────────────────────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0xffffff,1.0));
 const sun=new THREE.DirectionalLight(0xfff5e8,0.8);
 sun.position.set(200,400,250);
 sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);
-sun.shadow.camera.near=10; sun.shadow.camera.far=2000;
-sun.shadow.camera.left=sun.shadow.camera.bottom=-400;
-sun.shadow.camera.right=sun.shadow.camera.top=400;
+sun.shadow.camera.near=10; sun.shadow.camera.far=3000;
+sun.shadow.camera.left=sun.shadow.camera.bottom=-600;
+sun.shadow.camera.right=sun.shadow.camera.top=600;
 sun.shadow.bias=-0.0005;
 scene.add(sun);
 const fill=new THREE.DirectionalLight(0xddeeff,0.3);
 fill.position.set(-150,100,-200);
 scene.add(fill);
 
-// ── FLOOR ────────────────────────────────────────────────────────────────────
-const floor=new THREE.Mesh(new THREE.PlaneGeometry(5000,5000),new THREE.ShadowMaterial({opacity:0.04}));
-floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+// ── FLOOR ─────────────────────────────────────────────────────────────────────
+const floorMesh=new THREE.Mesh(
+  new THREE.PlaneGeometry(5000,5000),
+  new THREE.ShadowMaterial({opacity:0.04})
+);
+floorMesh.rotation.x=-Math.PI/2;
+floorMesh.receiveShadow=true;
+scene.add(floorMesh);
 const grid=new THREE.GridHelper(2000,80,0xcccccc,0xdddddd);
-grid.material.opacity=0.18; grid.material.transparent=true; scene.add(grid);
+grid.material.opacity=0.18; grid.material.transparent=true;
+scene.add(grid);
 
-// ── OBJ PARSER ───────────────────────────────────────────────────────────────
-// Try both axis conventions — we'll auto-detect after load which way is up
-// For now: keep Rhino native coords (X,Y,Z), centre+orient after load
+// ── OBJ PARSER ────────────────────────────────────────────────────────────────
+// Each OBJ is parsed with vertices kept in LOCAL space (centred at origin).
+// The block's WORLD position (from Rhino) is extracted separately as centroid,
+// and stored in mesh.position. This way mesh.position is always meaningful.
+//
+// Rhino exports with Z-up. We want Y-up (Three.js convention):
+//   threeX =  rhinoX
+//   threeY =  rhinoZ   (Rhino's Z becomes Three's Y)
+//   threeZ = -rhinoY   (Rhino's Y becomes Three's -Z)
+
 function parseOBJ(text){
-  const rv=[],rn=[],pos=[],nrm=[];
-  for(const raw of text.split('\n')){
+  // Step 1: collect raw Rhino vertices (Z-up)
+  const rhinoV=[];
+  const lines=text.split('\n');
+  for(const raw of lines){
     const p=raw.trim().split(/\s+/);
-    if(!p[0])continue;
-    if(p[0]==='v' ){rv.push(+p[1],+p[2],+p[3]);}       // raw Rhino coords
-    else if(p[0]==='vn'){rn.push(+p[1],+p[2],+p[3]);}
-    else if(p[0]==='f'){
-      const cs=p.slice(1).map(t=>{
-        const s=t.split('/');
-        return{vi:(+s[0])-1,ni:s.length>=3&&s[2]!==''?(+s[2])-1:(+s[0])-1};
-      });
-      for(let i=1;i<cs.length-1;i++){
-        for(const c of[cs[0],cs[i],cs[i+1]]){
-          pos.push(rv[c.vi*3],rv[c.vi*3+1],rv[c.vi*3+2]);
-          if(rn.length)nrm.push(rn[c.ni*3],rn[c.ni*3+1],rn[c.ni*3+2]);
+    if(p[0]==='v') rhinoV.push(+p[1],+p[2],+p[3]);
+  }
+
+  // Step 2: compute centroid in Three-space (after axis swap)
+  let cx=0,cy=0,cz=0;
+  const n=rhinoV.length/3;
+  for(let i=0;i<n;i++){
+    cx+=rhinoV[i*3];
+    cy+=rhinoV[i*3+2];   // threeY = rhinoZ
+    cz+=-rhinoV[i*3+1];  // threeZ = -rhinoY
+  }
+  cx/=n; cy/=n; cz/=n;
+  const centroid=new THREE.Vector3(cx,cy,cz);
+
+  // Step 3: build geometry with vertices centred at origin
+  const rhinoN=[];
+  const pos=[],nrm=[];
+  for(const raw of lines){
+    const p=raw.trim().split(/\s+/);
+    if(p[0]==='vn') rhinoN.push(+p[1],+p[2],+p[3]);
+  }
+  for(const raw of lines){
+    const p=raw.trim().split(/\s+/);
+    if(p[0]!=='f') continue;
+    const cs=p.slice(1).map(t=>{
+      const s=t.split('/');
+      return{vi:(+s[0])-1, ni:s.length>=3&&s[2]!==''?(+s[2])-1:(+s[0])-1};
+    });
+    for(let i=1;i<cs.length-1;i++){
+      for(const c of[cs[0],cs[i],cs[i+1]]){
+        const vi=c.vi;
+        // axis swap + subtract centroid → local coords
+        pos.push(
+          rhinoV[vi*3  ]-cx,       // X stays X, minus centroid.x
+          rhinoV[vi*3+2]-cy,       // rhinoZ → threeY, minus centroid.y
+         -rhinoV[vi*3+1]-cz        // -rhinoY → threeZ, minus centroid.z
+        );
+        if(rhinoN.length){
+          const ni=c.ni;
+          nrm.push(rhinoN[ni*3], rhinoN[ni*3+2], -rhinoN[ni*3+1]);
         }
       }
     }
   }
+
   const geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
-  if(nrm.length)geo.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(nrm),3));
+  if(nrm.length) geo.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(nrm),3));
   else geo.computeVertexNormals();
-  return geo;
+
+  return {geo, centroid};
 }
 
-// ── BLOCK STORE ──────────────────────────────────────────────────────────────
+// ── BLOCK STORE ───────────────────────────────────────────────────────────────
 const blocks=[];
 let currentMode='pile';
-// Store fixed explode offsets per block so re-entering explode mode
-// doesn't re-randomise (fixes the "explode on pile→explode" bug)
-let explodeOffsets=null;
+let explodeOffsets=null; // pre-computed, fixed per block
 
-// ── LOAD ─────────────────────────────────────────────────────────────────────
+// ── LOAD ──────────────────────────────────────────────────────────────────────
 let loaded=0;
 const lbar=document.getElementById('lbar');
 const lcount=document.getElementById('lcount');
@@ -187,24 +223,26 @@ async function loadAll(){
     const idx=String(i).padStart(2,'0');
     promises.push(
       fetch(`${BASE_URL}Object_${idx}.obj`)
-        .then(r=>{if(!r.ok)throw r.status;return r.text();})
+        .then(r=>{if(!r.ok)throw r.status; return r.text();})
         .then(text=>{
-          const geo=parseOBJ(text);
+          const {geo,centroid}=parseOBJ(text);
           const mat=new THREE.MeshStandardMaterial({
             color:PALETTE[(i-1)%PALETTE.length],
-            roughness:0.5,metalness:0.05,
+            roughness:0.5, metalness:0.05,
           });
           const mesh=new THREE.Mesh(geo,mat);
           mesh.castShadow=mesh.receiveShadow=true;
           mesh.userData.idx=i;
+          // Place mesh at Rhino world centroid (already axis-swapped)
+          mesh.position.copy(centroid);
           scene.add(mesh);
           blocks.push({
             mesh,
-            homePos:new THREE.Vector3(),
-            targetPos:new THREE.Vector3(),
+            homePos: centroid.clone(),   // original pile position
+            targetPos: centroid.clone(), // current target
           });
         })
-        .catch(e=>console.warn(`Object_${idx}.obj failed:`,e))
+        .catch(e=>console.warn(`Object_${idx}.obj:`,e))
         .finally(()=>{
           loaded++;
           lbar.style.width=Math.round(loaded/TOTAL*100)+'%';
@@ -217,161 +255,97 @@ async function loadAll(){
 }
 
 function onAllLoaded(){
-  if(!blocks.length){console.error('no blocks');return;}
+  if(!blocks.length){console.error('no blocks'); return;}
 
-  // ── Compute bounding box in RAW Rhino coords ──────────────────────────────
+  // Compute bounding box of all block centroids
   const box=new THREE.Box3();
-  blocks.forEach(b=>box.expandByObject(b.mesh));
+  blocks.forEach(b=>box.expandByPoint(b.homePos));
   const center=new THREE.Vector3(); box.getCenter(center);
   const size=new THREE.Vector3();   box.getSize(size);
 
-  // Rhino is Z-up. After load with raw coords:
-  //   size.x = width (feet), size.y = depth (feet), size.z = HEIGHT (feet)
-  // We want height to go up in Three's Y axis.
-  // Apply transform: threeX=rhinoX-cx, threeY=rhinoZ-minZ, threeZ=-(rhinoY-cy)
+  // Shift so massing is centred at X=0,Z=0 and bottom sits at Y=0
+  const shiftX=center.x, shiftY=box.min.y, shiftZ=center.z;
   blocks.forEach(b=>{
-    const p=b.mesh.position;
-    const rx=p.x-center.x;
-    const ry=p.y-center.y;
-    const rz=p.z;
-    b.mesh.position.set(rx, rz-box.min.z, -ry);
+    b.mesh.position.x -= shiftX;
+    b.mesh.position.y -= shiftY;
+    b.mesh.position.z -= shiftZ;
     b.homePos.copy(b.mesh.position);
     b.targetPos.copy(b.mesh.position);
   });
 
-  // Also transform all vertex positions in geometry
-  blocks.forEach(b=>{
-    const pa=b.mesh.geometry.attributes.position;
-    for(let i=0;i<pa.count;i++){
-      const rx=pa.getX(i)-center.x;
-      const ry=pa.getY(i)-center.y;
-      const rz=pa.getZ(i)-box.min.z;
-      pa.setXYZ(i, rx, rz, -ry);
-    }
-    pa.needsUpdate=true;
-    b.mesh.geometry.computeVertexNormals();
-    b.mesh.geometry.computeBoundingBox();
-    // Reset mesh position to 0 since verts now encode world pos
-    b.mesh.position.set(0,0,0);
-    b.homePos.set(0,0,0);
-    b.targetPos.set(0,0,0);
-  });
+  floorMesh.position.y=0;
+  grid.position.y=1;
 
-  // ── Now compute correct bbox after transform ──────────────────────────────
-  const box2=new THREE.Box3();
-  blocks.forEach(b=>box2.expandByObject(b.mesh));
-  const center2=new THREE.Vector3(); box2.getCenter(center2);
-  const size2=new THREE.Vector3();   box2.getSize(size2);
-
-  // Shift so bottom sits on y=0, centred on x/z
-  blocks.forEach(b=>{
-    const pa=b.mesh.geometry.attributes.position;
-    for(let i=0;i<pa.count;i++){
-      pa.setXYZ(i,
-        pa.getX(i)-center2.x,
-        pa.getY(i)-box2.min.y,
-        pa.getZ(i)-center2.z
-      );
-    }
-    pa.needsUpdate=true;
-    b.mesh.geometry.computeBoundingBox();
-    // Store centroid of this block's geometry as homePos
-    const bb=new THREE.Box3().setFromObject(b.mesh);
-    const c=new THREE.Vector3(); bb.getCenter(c);
-    b.homePos.copy(c);
-    b.targetPos.copy(c);
-    // mesh position stays at 0 — all position is baked into geometry
-    // BUT we need to be able to move blocks, so let's unbake:
-    // shift verts to be centred at origin, use mesh.position for placement
-    for(let i=0;i<pa.count;i++){
-      pa.setXYZ(i, pa.getX(i)-c.x, pa.getY(i)-c.y, pa.getZ(i)-c.z);
-    }
-    pa.needsUpdate=true;
-    b.mesh.geometry.computeVertexNormals();
-    b.mesh.position.copy(c);
-    b.homePos.copy(c);
-    b.targetPos.copy(c);
-  });
-
-  floor.position.y=0; grid.position.y=1;
-
-  // Pre-compute explode offsets (fixed, not re-randomised)
-  const H2=size2.y, D2=Math.max(size2.x,size2.z);
-  const spread=D2*0.8;
+  // Pre-compute fixed explode offsets (deterministic, not random)
+  const D=Math.max(size.x,size.z);
+  const spread=D*0.9;
   explodeOffsets=blocks.map((_,i)=>{
-    const angle=(i/blocks.length)*Math.PI*2+(i%3)*0.4;
-    const r=spread*(0.4+((i*7)%10)/10*0.8);
-    return new THREE.Vector3(Math.cos(angle)*r, 0, Math.sin(angle)*r);
+    const angle=(i/blocks.length)*Math.PI*2 + (i%5)*0.3;
+    const r=spread*(0.3 + (i%7)/7*0.8);
+    return {dx: Math.cos(angle)*r, dz: Math.sin(angle)*r};
   });
 
-  // Camera
-  orb.r=D2*1.5+H2*0.5;
-  orb.phi=0.72;
+  // Fit camera
+  const H=size.y;
+  orb.r   = D*1.4+H*0.5;
+  orb.phi = 0.72;
   orb.theta=0.55;
-  orbTarget.set(0,H2*0.38,0);
+  orbTarget.set(0, H*0.38, 0);
   applyOrbit();
 
-  const halfD=Math.max(D2,H2)*0.7;
-  sun.shadow.camera.left=sun.shadow.camera.bottom=-halfD;
-  sun.shadow.camera.right=sun.shadow.camera.top=halfD;
-  sun.shadow.camera.updateProjectionMatrix();
-
-  const el=document.getElementById('loading');
-  el.style.opacity='0';
-  setTimeout(()=>el.remove(),800);
+  document.getElementById('loading').style.opacity='0';
+  setTimeout(()=>document.getElementById('loading').remove(),800);
 }
 
 loadAll();
 
 // ── ORBIT ─────────────────────────────────────────────────────────────────────
-const orb={theta:0.55,phi:0.72,r:500};
+const orb={theta:0.55, phi:0.72, r:500};
 const orbTarget=new THREE.Vector3(0,80,0);
 
 function applyOrbit(){
   camera.position.set(
-    orbTarget.x+orb.r*Math.sin(orb.phi)*Math.sin(orb.theta),
-    orbTarget.y+orb.r*Math.cos(orb.phi),
-    orbTarget.z+orb.r*Math.sin(orb.phi)*Math.cos(orb.theta)
+    orbTarget.x + orb.r*Math.sin(orb.phi)*Math.sin(orb.theta),
+    orbTarget.y + orb.r*Math.cos(orb.phi),
+    orbTarget.z + orb.r*Math.sin(orb.phi)*Math.cos(orb.theta)
   );
   camera.lookAt(orbTarget);
 }
 applyOrbit();
 
-// ── INTERACTION ──────────────────────────────────────────────────────────────
+// ── INTERACTION ───────────────────────────────────────────────────────────────
 let isOrbiting=false, orbitStart={x:0,y:0}, orbitSnap={theta:0,phi:0};
 let hoveredBlock=null, draggedBlock=null;
-// Use a Y=constant horizontal plane for dragging — much more stable than camera-facing plane
-const dragY=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+const dragPlaneY=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const dragHit=new THREE.Vector3();
-const dragOff=new THREE.Vector3();
+const dragOffXZ={x:0,z:0};
 const raycaster=new THREE.Raycaster();
 const mouse2d=new THREE.Vector2();
 const cursorEl=document.getElementById('cursor');
 const blockTag=document.getElementById('block-tag');
 
-function setEmissive(block,v){
-  if(block&&block.mesh.material) block.mesh.material.emissive.setScalar(v);
-}
+function setEmissive(b,v){ if(b) b.mesh.material.emissive.setScalar(v); }
 
 window.addEventListener('mousemove',e=>{
   cursorEl.style.left=e.clientX+'px';
   cursorEl.style.top=e.clientY+'px';
-  mouse2d.set((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+  mouse2d.set((e.clientX/innerWidth)*2-1, -(e.clientY/innerHeight)*2+1);
 
+  // dragging a block (explode mode only)
   if(draggedBlock){
-    // drag on horizontal plane at block's Y height — no flying away
-    dragY.constant=-draggedBlock.homePos.y;
+    dragPlaneY.constant=-draggedBlock.mesh.position.y;
     raycaster.setFromCamera(mouse2d,camera);
-    if(raycaster.ray.intersectPlane(dragY,dragHit)){
+    if(raycaster.ray.intersectPlane(dragPlaneY,dragHit)){
       draggedBlock.targetPos.set(
-        dragHit.x-dragOff.x,
-        draggedBlock.homePos.y,   // lock Y — block stays at its height
-        dragHit.z-dragOff.z
+        dragHit.x - dragOffXZ.x,
+        draggedBlock.mesh.position.y, // lock Y
+        dragHit.z - dragOffXZ.z
       );
     }
     return;
   }
 
+  // orbiting
   if(isOrbiting){
     orb.theta=orbitSnap.theta-(e.clientX-orbitStart.x)*0.007;
     orb.phi=Math.max(0.05,Math.min(1.45,orbitSnap.phi+(e.clientY-orbitStart.y)*0.007));
@@ -384,7 +358,7 @@ window.addEventListener('mousemove',e=>{
   const hits=raycaster.intersectObjects(blocks.map(b=>b.mesh));
   if(hits.length){
     const hit=blocks.find(b=>b.mesh===hits[0].object);
-    if(!hit)return;
+    if(!hit) return;
     if(hit!==hoveredBlock){
       setEmissive(hoveredBlock,0);
       hoveredBlock=hit;
@@ -395,38 +369,35 @@ window.addEventListener('mousemove',e=>{
     blockTag.style.left=(e.clientX+14)+'px';
     blockTag.style.top=(e.clientY-8)+'px';
     blockTag.textContent=currentMode==='explode'
-      ?`Block ${hit.mesh.userData.idx} · drag to move`
-      :`Block ${hit.mesh.userData.idx}`;
+      ? `Block ${hit.mesh.userData.idx} · drag to move`
+      : `Block ${hit.mesh.userData.idx}`;
   } else {
-    if(hoveredBlock){setEmissive(hoveredBlock,0);hoveredBlock=null;}
+    if(hoveredBlock){ setEmissive(hoveredBlock,0); hoveredBlock=null; }
     cursorEl.classList.remove('hovering');
     blockTag.style.opacity='0';
   }
 });
 
 window.addEventListener('mousedown',e=>{
-  if(e.button!==0)return;
+  if(e.button!==0) return;
 
-  // explode mode + hovering a block = drag that block
+  // EXPLODE MODE + hovering = drag block
   if(currentMode==='explode' && hoveredBlock){
     draggedBlock=hoveredBlock;
     setEmissive(draggedBlock,0);
     cursorEl.classList.add('grabbed');
     cursorEl.classList.remove('hovering');
-    // compute XZ offset so block doesn't snap under cursor
-    dragY.constant=-draggedBlock.mesh.position.y;
+    // record XZ offset so block doesn't snap to cursor
+    dragPlaneY.constant=-draggedBlock.mesh.position.y;
     raycaster.setFromCamera(mouse2d,camera);
-    if(raycaster.ray.intersectPlane(dragY,dragHit)){
-      dragOff.set(
-        dragHit.x-draggedBlock.mesh.position.x,
-        0,
-        dragHit.z-draggedBlock.mesh.position.z
-      );
+    if(raycaster.ray.intersectPlane(dragPlaneY,dragHit)){
+      dragOffXZ.x=dragHit.x-draggedBlock.mesh.position.x;
+      dragOffXZ.z=dragHit.z-draggedBlock.mesh.position.z;
     }
     return;
   }
 
-  // pile mode, or explode mode not on a block = orbit
+  // everything else = orbit
   isOrbiting=true;
   orbitStart={x:e.clientX,y:e.clientY};
   orbitSnap={theta:orb.theta,phi:orb.phi};
@@ -434,7 +405,6 @@ window.addEventListener('mousedown',e=>{
 
 window.addEventListener('mouseup',()=>{
   if(draggedBlock){
-    // update homePos so pile mode returns here, not original position
     draggedBlock.homePos.copy(draggedBlock.targetPos);
     draggedBlock=null;
     cursorEl.classList.remove('grabbed');
@@ -452,19 +422,14 @@ function setMode(mode){
   currentMode=mode;
   document.getElementById('btn-pile').classList.toggle('active',mode==='pile');
   document.getElementById('btn-explode').classList.toggle('active',mode==='explode');
-
   if(mode==='pile'){
     blocks.forEach(b=>b.targetPos.copy(b.homePos));
     document.getElementById('hint').innerHTML='drag · orbit<br>scroll · zoom';
   } else {
-    // Use pre-computed fixed offsets — no re-randomisation
     if(explodeOffsets){
       blocks.forEach((b,i)=>{
-        b.targetPos.set(
-          b.homePos.x+(explodeOffsets[i]?explodeOffsets[i].x:0),
-          b.homePos.y,
-          b.homePos.z+(explodeOffsets[i]?explodeOffsets[i].z:0)
-        );
+        const off=explodeOffsets[i];
+        b.targetPos.set(b.homePos.x+off.dx, b.homePos.y, b.homePos.z+off.dz);
       });
     }
     document.getElementById('hint').innerHTML='click & drag blocks<br>scroll · zoom';
@@ -472,15 +437,12 @@ function setMode(mode){
 }
 
 // ── ANIMATION ─────────────────────────────────────────────────────────────────
-const clock=new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
-  clock.getDelta(); // consume delta
   blocks.forEach(b=>{
-    const dist=b.mesh.position.distanceTo(b.targetPos);
-    if(dist>0.5) b.mesh.position.lerp(b.targetPos,0.09);
-    else b.mesh.position.copy(b.targetPos);
-    b.mesh.scale.set(1,1,1);
+    const d=b.mesh.position.distanceTo(b.targetPos);
+    if(d>0.5) b.mesh.position.lerp(b.targetPos,0.09);
+    else       b.mesh.position.copy(b.targetPos);
   });
   renderer.render(scene,camera);
 }
