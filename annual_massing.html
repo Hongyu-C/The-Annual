@@ -129,7 +129,9 @@ sun.shadow.camera.left=sun.shadow.camera.bottom=-400;
 sun.shadow.camera.right=sun.shadow.camera.top=400;
 sun.shadow.bias=-0.0005;
 scene.add(sun);
-scene.add(Object.assign(new THREE.DirectionalLight(0xddeeff,0.3),{position:new THREE.Vector3(-150,100,-200)}));
+const fill=new THREE.DirectionalLight(0xddeeff,0.3);
+fill.position.set(-150,100,-200);
+scene.add(fill);
 
 // ── FLOOR ────────────────────────────────────────────────────────────────────
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(5000,5000),new THREE.ShadowMaterial({opacity:0.04}));
