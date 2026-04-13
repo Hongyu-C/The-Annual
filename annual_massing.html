@@ -280,10 +280,10 @@ function onAllLoaded(){
 
   // Pre-compute fixed explode offsets (deterministic, not random)
   const D=Math.max(size.x,size.z);
-  const spread=D*0.9;
+  const spread=D*0.4;  // tighter spread — mm units so D is already large
   explodeOffsets=blocks.map((_,i)=>{
     const angle=(i/blocks.length)*Math.PI*2 + (i%5)*0.3;
-    const r=spread*(0.3 + (i%7)/7*0.8);
+    const r=spread*(0.2 + (i%7)/7*0.5);
     return {dx: Math.cos(angle)*r, dz: Math.sin(angle)*r};
   });
 
