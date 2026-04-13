@@ -348,7 +348,6 @@ window.addEventListener('mousemove',e=>{
         draggedBlock.mesh.position.y,
         dragHit.z-dragOffXZ.z
       );
-      console.log('dragging | targetPos:',draggedBlock.targetPos.toArray(),'| meshPos:',draggedBlock.mesh.position.toArray());
     }
     return;
   }
@@ -395,8 +394,6 @@ window.addEventListener('mousedown',e=>{
     const blockY=draggedBlock.mesh.position.y;
     dragPlaneH.set(new THREE.Vector3(0,1,0), -blockY);
     raycaster.setFromCamera(mouse2d,camera);
-    const hit=raycaster.ray.intersectPlane(dragPlaneH,dragHit);
-    console.log('drag start | blockY:',blockY,'| planeHit:',hit,'| dragHit:',dragHit.toArray());
     if(hit){
       dragOffXZ.x=dragHit.x-draggedBlock.mesh.position.x;
       dragOffXZ.z=dragHit.z-draggedBlock.mesh.position.z;
@@ -405,7 +402,6 @@ window.addEventListener('mousedown',e=>{
     }
     return;
   }
-  console.log('mousedown | mode:',currentMode,'| hoveredBlock:',hoveredBlock);
   isOrbiting=true;
   orbitStart={x:e.clientX,y:e.clientY};
   orbitSnap={theta:orb.theta,phi:orb.phi};
@@ -479,25 +475,18 @@ function animate(){
   const dt=Math.min(clock.getDelta(),0.05);
 
   blocks.forEach(b=>{
-    if(b===draggedBlock) return; // skip physics while dragging
-
-    if(currentMode==='explode' && b.falling){
-      // apply gravity
+    if(currentMode==='explode' && b.falling && b!==draggedBlock){
+      // physics: gravity + bounce
       b.vel.y+=GRAVITY*dt;
       b.vel.x*=DRAG_XZ;
       b.vel.z*=DRAG_XZ;
-
       b.mesh.position.x+=b.vel.x*dt;
       b.mesh.position.y+=b.vel.y*dt;
       b.mesh.position.z+=b.vel.z*dt;
-
-      // floor collision at block's rest Y
       if(b.mesh.position.y<=b.floorY){
         b.mesh.position.y=b.floorY;
         b.vel.y*=-BOUNCE;
-        b.vel.x*=0.7;
-        b.vel.z*=0.7;
-        // stop bouncing if tiny
+        b.vel.x*=0.7; b.vel.z*=0.7;
         if(Math.abs(b.vel.y)<5){
           b.vel.set(0,0,0);
           b.falling=false;
@@ -505,13 +494,11 @@ function animate(){
           b.targetPos.copy(b.mesh.position);
         }
       }
-
-      // sync targetPos
       b.targetPos.copy(b.mesh.position);
     } else {
-      // smooth lerp toward target
+      // smooth lerp toward target — runs for ALL blocks including draggedBlock
       const d=b.mesh.position.distanceTo(b.targetPos);
-      if(d>SNAP_DIST) b.mesh.position.lerp(b.targetPos,0.09);
+      if(d>SNAP_DIST) b.mesh.position.lerp(b.targetPos,0.18);
       else            b.mesh.position.copy(b.targetPos);
     }
   });
