@@ -146,8 +146,8 @@ function parseOBJ(text){
   for(const raw of text.split('\n')){
     const p=raw.trim().split(/\s+/);
     if(!p[0])continue;
-    if(p[0]==='v' ){rv.push(+p[1],+p[3],-p[2]);}
-    else if(p[0]==='vn'){rn.push(+p[1],+p[3],-p[2]);}
+    if(p[0]==='v' ){rv.push(+p[1],-p[3],+p[2]);}
+    else if(p[0]==='vn'){rn.push(+p[1],-p[3],+p[2]);}
     else if(p[0]==='f'){
       const cs=p.slice(1).map(t=>{
         const s=t.split('/');
@@ -331,8 +331,6 @@ window.addEventListener('mousemove',e=>{
       setEmissive(hoveredBlock,0);
       hoveredBlock=hit;
       setEmissive(hit,0.1);
-      // trigger squish
-      hit.squishT=0; hit.squishing=true;
     }
     cursorEl.classList.add('hovering');
     blockTag.style.opacity='1';
@@ -434,27 +432,8 @@ function animate(){
     } else {
       b.mesh.position.copy(b.targetPos);
     }
-
-    // ── soft squish on hover entry ────────────────────────────────────────
-    // squishT goes 0→1 over ~0.25s, driving a sine-based Y-squish
-    // Scale is reset to 1 after squish to not break raycaster
-    if(b.squishing){
-      b.squishT+=dt*4; // 0→1 in 0.25s
-      if(b.squishT>=1){
-        b.squishT=1; b.squishing=false;
-        b.mesh.scale.set(1,1,1); // fully reset
-      } else {
-        // squish: compress Y, expand XZ slightly (volume-preserving feel)
-        const s=Math.sin(b.squishT*Math.PI); // 0→1→0 arc
-        const sy=1-s*0.07;   // max 7% compression on Y
-        const sxz=1+s*0.035; // 3.5% expansion on XZ
-        b.mesh.scale.set(sxz,sy,sxz);
-      }
-    }
-    // if not squishing and not hovered, ensure scale is exactly 1
-    if(!b.squishing && b!==hoveredBlock){
-      b.mesh.scale.set(1,1,1);
-    }
+    // scale always exactly 1 — no animation on scale, keeps raycaster stable
+    b.mesh.scale.set(1,1,1);
   });
 
   renderer.render(scene,camera);
