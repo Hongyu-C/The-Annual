@@ -276,11 +276,12 @@ function onAllLoaded(){
     b.targetPos.copy(b.mesh.position);
     // physics state
     b.vel     = new THREE.Vector3();
-    b.falling = false;
-    b.floorY  = b.mesh.position.y;
+    b.sleeping= true;
+    b.sleepCounter= SLEEP_FRAMES;
+    b.radius  = 1; // placeholder, set properly in initPhysicsBodies
     b.dragVelX= 0;
     b.dragVelZ= 0;
-    b.squishT = 0; // 0=normal, >0=squishing
+    b.squishT = 0;
   });
 
   floorMesh.position.y=0;
@@ -294,6 +295,9 @@ function onAllLoaded(){
     const r=spread*(0.2 + (i%7)/7*0.5);
     return {dx: Math.cos(angle)*r, dz: Math.sin(angle)*r};
   });
+
+  // init physics sphere radii
+  initPhysicsBodies();
 
   // Fit camera
   const H=size.y;
@@ -417,13 +421,12 @@ window.addEventListener('mousedown',e=>{
 
 window.addEventListener('mouseup',()=>{
   if(draggedBlock){
-    // transfer drag inertia to physics velocity
     draggedBlock.vel.set(
       draggedBlock.dragVelX*55,
       0,
       draggedBlock.dragVelZ*55
     );
-    draggedBlock.falling=true;
+    wakeBlock(draggedBlock);
     draggedBlock.homePos.copy(draggedBlock.targetPos);
     draggedBlock=null;
     cursorEl.classList.remove('grabbed');
@@ -466,62 +469,156 @@ function resetAll(){
   blocks.forEach(b=>{
     b.homePos.copy(b.originalPos);
     b.targetPos.copy(b.originalPos);
-    b.falling=false;
     b.vel.set(0,0,0);
     b.squishT=0;
     b.dragVelX=0;
     b.dragVelZ=0;
+    b.sleeping=true;
+    b.sleepCounter=SLEEP_FRAMES;
     b.mesh.scale.set(1,1,1);
   });
   setMode('pile');
 }
 
-// ── ANIMATION + PHYSICS ───────────────────────────────────────────────────────
-// Lightweight gravity: when a block is released (falling=true),
-// apply gravity to vel.y, bounce when hitting floor (y=0+blockHalfHeight).
-// No block-block collision — just floor bounce.
-const GRAVITY    = -2800;   // mm/s² (scaled for mm units)
-const BOUNCE     = 0.38;    // restitution
-const DRAG_XZ    = 0.88;    // horizontal damping per frame
-const SNAP_DIST  = 2;       // mm — snap threshold
+// ── PHYSICS CONSTANTS ─────────────────────────────────────────────────────────
+const GRAVITY   = -2800;  // mm/s²
+const BOUNCE    = 0.35;   // restitution
+const FRICTION  = 0.82;   // horizontal damping on ground contact
+const SNAP_DIST = 2;      // mm snap threshold for lerp
+const SLEEP_VEL = 4;      // velocity threshold to enter sleep
+const SLEEP_FRAMES = 12;  // frames of low velocity before sleeping
 
+// compute bounding sphere radius for each block after load
+// called from onAllLoaded after positions are finalised
+function initPhysicsBodies(){
+  blocks.forEach(b=>{
+    const box=new THREE.Box3().setFromObject(b.mesh);
+    const size=new THREE.Vector3(); box.getSize(size);
+    b.radius=Math.max(size.x,size.y,size.z)*0.52;
+    b.sleepCounter=SLEEP_FRAMES; // start sleeping
+    b.sleeping=true;
+  });
+}
+
+function wakeBlock(b){
+  b.sleeping=false;
+  b.sleepCounter=0;
+}
+
+// ── ANIMATION + PHYSICS ───────────────────────────────────────────────────────
 const clock=new THREE.Clock();
+
 function animate(){
   requestAnimationFrame(animate);
   const dt=Math.min(clock.getDelta(),0.05);
 
-  blocks.forEach(b=>{
-    if(currentMode==='explode' && b.falling && b!==draggedBlock){
+  if(currentMode==='explode'){
+    // ── physics step ────────────────────────────────────────────────────────
+    blocks.forEach(b=>{
+      if(b===draggedBlock || b.sleeping) return;
+
+      // gravity
       b.vel.y+=GRAVITY*dt;
-      b.vel.x*=DRAG_XZ;
-      b.vel.z*=DRAG_XZ;
+
+      // integrate position
       b.mesh.position.x+=b.vel.x*dt;
       b.mesh.position.y+=b.vel.y*dt;
       b.mesh.position.z+=b.vel.z*dt;
-      // fall to ground (y=0)
-      if(b.mesh.position.y<=0){
-        b.mesh.position.y=0;
-        b.vel.y*=-BOUNCE;
-        b.vel.x*=0.65; b.vel.z*=0.65;
-        if(Math.abs(b.vel.y)<5 && Math.abs(b.vel.x)<3){
-          b.vel.set(0,0,0);
-          b.falling=false;
-          b.homePos.copy(b.mesh.position);
-          b.targetPos.copy(b.mesh.position);
+
+      // floor collision
+      const floorY=b.radius*0.5; // rest height above y=0
+      if(b.mesh.position.y<floorY){
+        b.mesh.position.y=floorY;
+        if(Math.abs(b.vel.y)>SLEEP_VEL){
+          b.vel.y*=-BOUNCE;
+          b.vel.x*=FRICTION;
+          b.vel.z*=FRICTION;
+        } else {
+          b.vel.y=0;
+          b.vel.x*=0.7;
+          b.vel.z*=0.7;
         }
       }
+
       b.targetPos.copy(b.mesh.position);
-    } else {
-      const d=b.mesh.position.distanceTo(b.targetPos);
-      if(d>SNAP_DIST) b.mesh.position.lerp(b.targetPos,0.18);
-      else            b.mesh.position.copy(b.targetPos);
+
+      // sleep check
+      const speed=b.vel.length();
+      if(speed<SLEEP_VEL){
+        b.sleepCounter++;
+        if(b.sleepCounter>SLEEP_FRAMES){
+          b.sleeping=true;
+          b.vel.set(0,0,0);
+          b.homePos.copy(b.mesh.position);
+        }
+      } else {
+        b.sleepCounter=0;
+      }
+    });
+
+    // ── sphere-sphere collision ──────────────────────────────────────────────
+    for(let i=0;i<blocks.length;i++){
+      const a=blocks[i];
+      if(a===draggedBlock) continue;
+      for(let j=i+1;j<blocks.length;j++){
+        const b=blocks[j];
+        if(b===draggedBlock) continue;
+        if(a.sleeping && b.sleeping) continue;
+
+        const dx=b.mesh.position.x-a.mesh.position.x;
+        const dy=b.mesh.position.y-a.mesh.position.y;
+        const dz=b.mesh.position.z-a.mesh.position.z;
+        const dist=Math.sqrt(dx*dx+dy*dy+dz*dz)||0.001;
+        const minDist=a.radius+b.radius;
+
+        if(dist<minDist){
+          // normalised separation axis
+          const nx=dx/dist, ny=dy/dist, nz=dz/dist;
+          // push apart
+          const overlap=(minDist-dist)*0.5;
+          if(!a.sleeping){
+            a.mesh.position.x-=nx*overlap;
+            a.mesh.position.y-=ny*overlap;
+            a.mesh.position.z-=nz*overlap;
+          }
+          if(!b.sleeping){
+            b.mesh.position.x+=nx*overlap;
+            b.mesh.position.y+=ny*overlap;
+            b.mesh.position.z+=nz*overlap;
+          }
+          // velocity exchange (elastic-ish)
+          const relVel=(b.vel.x-a.vel.x)*nx+(b.vel.y-a.vel.y)*ny+(b.vel.z-a.vel.z)*nz;
+          if(relVel<0){
+            const impulse=relVel*(1+BOUNCE)*0.5;
+            if(!a.sleeping){ a.vel.x+=impulse*nx; a.vel.y+=impulse*ny; a.vel.z+=impulse*nz; wakeBlock(a); }
+            if(!b.sleeping){ b.vel.x-=impulse*nx; b.vel.y-=impulse*ny; b.vel.z-=impulse*nz; wakeBlock(b); }
+          }
+        }
+      }
     }
 
-    // squish animation — independent of physics
+    // dragged block: lerp mesh to targetPos (physics-driven for others)
+    if(draggedBlock){
+      const d=draggedBlock.mesh.position.distanceTo(draggedBlock.targetPos);
+      if(d>SNAP_DIST) draggedBlock.mesh.position.lerp(draggedBlock.targetPos,0.22);
+      else            draggedBlock.mesh.position.copy(draggedBlock.targetPos);
+    }
+
+  } else {
+    // pile mode: simple lerp, no physics
+    blocks.forEach(b=>{
+      const d=b.mesh.position.distanceTo(b.targetPos);
+      if(d>SNAP_DIST) b.mesh.position.lerp(b.targetPos,0.09);
+      else            b.mesh.position.copy(b.targetPos);
+    });
+  }
+
+  // squish animation — always runs regardless of mode
+  blocks.forEach(b=>{
     if(b.squishT>0){
       b.squishT=Math.max(0,b.squishT-dt*3.5);
-      const s=Math.sin(b.squishT*Math.PI); // arc 0→1→0
-      b.mesh.scale.set(1+s*0.12, 1-s*0.09, 1+s*0.12);
+      const s=Math.sin(b.squishT*Math.PI);
+      b.mesh.scale.set(1+s*0.10, 1-s*0.08, 1+s*0.10);
     } else {
       b.mesh.scale.set(1,1,1);
     }
