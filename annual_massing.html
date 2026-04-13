@@ -269,7 +269,7 @@ function onAllLoaded() {
 loadAll();
 
 // ─── ORBIT ────────────────────────────────────────────────────────────────────
-const orb={theta:0.4,phi:0.55,r:300};
+const orb={theta:0.4,phi:0.45,r:300};  // phi<0.5 = looking down from above
 const orbTarget=new THREE.Vector3(0,50,0);
 
 function applyOrbit(){
@@ -316,9 +316,10 @@ window.addEventListener('mousemove',e=>{
   const hits=raycaster.intersectObjects(blocks.map(b=>b.mesh));
   if (hits.length){
     const hit=blocks.find(b=>b.mesh===hits[0].object);
-   if(hit!==hoveredBlock){
-  hoveredBlock=hit;
-}
+    // only trigger jiggle on first entry, not every frame
+    if (hit!==hoveredBlock){
+      hoveredBlock=hit;
+    }
     cursor.classList.add('hovering'); cursor.classList.remove('grabbed');
     blockTag.style.opacity='1';
     blockTag.style.left=(e.clientX+14)+'px';
@@ -327,7 +328,7 @@ window.addEventListener('mousemove',e=>{
       ?`Block ${hit.mesh.userData.idx} · drag to move`
       :`Block ${hit.mesh.userData.idx}`;
   } else {
-    if(hoveredBlock){hoveredBlock.wobbleAmp=0;hoveredBlock=null;}
+    hoveredBlock=null;
     cursor.classList.remove('hovering');
     blockTag.style.opacity='0';
   }
@@ -397,17 +398,19 @@ function animate(){
   requestAnimationFrame(animate);
   const t=clock.getElapsedTime();
   blocks.forEach(b=>{
-    if(b.mesh.position.distanceTo(b.targetPos)>0.01)
-  b.mesh.position.lerp(b.targetPos,0.08);
-else
-  b.mesh.position.copy(b.targetPos);
+    // snap to target once close enough — stops pile drift
+    const dist=b.mesh.position.distanceTo(b.targetPos);
+    if(dist>0.5) b.mesh.position.lerp(b.targetPos,0.08);
+    else b.mesh.position.copy(b.targetPos);
+
+    // subtle breathe on scale only — no position movement in pile
     if(currentMode==='pile'){
       const breathe=1+Math.sin(t*0.5+b.wobblePhase)*0.004;
-      const jiggle=b.wobbleAmp>0.01?b.wobbleAmp*0.04*Math.sin(t*9+b.wobblePhase):0;
-      b.mesh.scale.setScalar(breathe+jiggle);
-      b.wobbleAmp*=0.93;
+      b.mesh.scale.setScalar(breathe);
     } else {
-      b.mesh.scale.setScalar(1+(b===hoveredBlock?Math.sin(t*5)*0.015:0));
+      // gentle hover highlight in explode mode
+      const isHov=(b===hoveredBlock);
+      b.mesh.scale.setScalar(isHov?1.04:1.0);
     }
   });
   renderer.render(scene,camera);
