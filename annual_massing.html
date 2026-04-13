@@ -14,10 +14,10 @@ canvas { display:block; position:fixed; top:0; left:0; }
   position:fixed; width:12px; height:12px; background:#1a1a1a;
   border-radius:50%; pointer-events:none; z-index:1000;
   transform:translate(-50%,-50%);
-  transition: width .2s, height .2s, background .2s;
+  transition: width .18s, height .18s, background .18s;
 }
-#cursor.hovering { width:28px; height:28px; background:rgba(26,26,26,.1); border:1.5px solid #1a1a1a; }
-#cursor.grabbed  { width:18px; height:18px; background:#E8635A; }
+#cursor.hovering { width:30px; height:30px; background:rgba(26,26,26,.08); border:1.5px solid #1a1a1a; }
+#cursor.grabbed  { width:18px; height:18px; background:#E8635A; border:none; }
 
 #nav {
   position:fixed; top:0; left:0; right:0; z-index:200;
@@ -25,15 +25,14 @@ canvas { display:block; position:fixed; top:0; left:0; }
   padding:24px 40px; pointer-events:none;
 }
 .nav-logo { pointer-events:auto; }
-.nav-logo-sub { font-family:'DM Sans',sans-serif; font-size:10px; font-weight:400; letter-spacing:.28em; text-transform:uppercase; color:#aaa; }
+.nav-logo-sub { font-size:10px; letter-spacing:.28em; text-transform:uppercase; color:#aaa; }
 .nav-logo-main { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#1a1a1a; margin-top:2px; }
 .nav-links { pointer-events:auto; display:flex; gap:8px; }
 .nav-link {
   background:rgba(255,255,255,.88); backdrop-filter:blur(8px);
   border:1px solid rgba(0,0,0,.08); padding:8px 18px;
-  font-family:'DM Sans',sans-serif; font-size:10px; font-weight:500;
-  letter-spacing:.12em; text-transform:uppercase; color:#666;
-  cursor:pointer; border-radius:100px; text-decoration:none; transition:all .2s;
+  font-size:10px; font-weight:500; letter-spacing:.12em; text-transform:uppercase;
+  color:#666; cursor:pointer; border-radius:100px; text-decoration:none; transition:all .2s;
 }
 .nav-link.active { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
 .nav-link:hover:not(.active) { background:#fff; color:#1a1a1a; }
@@ -45,8 +44,8 @@ canvas { display:block; position:fixed; top:0; left:0; }
   border:1px solid rgba(0,0,0,.08); border-radius:100px; padding:4px;
 }
 .mode-btn {
-  padding:10px 28px; font-family:'DM Sans',sans-serif; font-size:10px;
-  font-weight:500; letter-spacing:.12em; text-transform:uppercase;
+  padding:10px 28px; font-size:10px; font-weight:500;
+  letter-spacing:.12em; text-transform:uppercase;
   color:#999; border:none; background:transparent; border-radius:100px;
   cursor:pointer; transition:all .3s;
 }
@@ -54,9 +53,8 @@ canvas { display:block; position:fixed; top:0; left:0; }
 
 #hint {
   position:fixed; bottom:44px; right:40px; z-index:200;
-  font-family:'DM Sans',sans-serif; font-size:10px;
-  letter-spacing:.15em; text-transform:uppercase; color:#bbb;
-  text-align:right; line-height:1.9; pointer-events:none;
+  font-size:10px; letter-spacing:.15em; text-transform:uppercase;
+  color:#bbb; text-align:right; line-height:1.9; pointer-events:none;
 }
 
 #loading {
@@ -67,26 +65,23 @@ canvas { display:block; position:fixed; top:0; left:0; }
 .loading-title { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; color:#1a1a1a; }
 .loading-bar-wrap { width:180px; height:2px; background:rgba(0,0,0,.08); border-radius:2px; overflow:hidden; }
 .loading-bar { height:100%; background:#E8635A; border-radius:2px; width:0%; transition:width .2s; }
-.loading-count { font-family:'DM Sans',sans-serif; font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:#aaa; }
+.loading-count { font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:#aaa; }
 
 #block-tag {
   position:fixed; z-index:300; background:#1a1a1a; color:#fff;
-  font-family:'DM Sans',sans-serif; font-size:10px; letter-spacing:.12em;
-  text-transform:uppercase; padding:5px 12px; border-radius:100px;
+  font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+  padding:5px 12px; border-radius:100px;
   pointer-events:none; opacity:0; transition:opacity .15s; white-space:nowrap;
 }
 </style>
 </head>
 <body>
-
 <div id="cursor"></div>
-
 <div id="loading">
   <div class="loading-title">The Annual</div>
   <div class="loading-bar-wrap"><div class="loading-bar" id="lbar"></div></div>
   <div class="loading-count" id="lcount">0 / 37</div>
 </div>
-
 <div id="nav">
   <div class="nav-logo">
     <div class="nav-logo-sub">The Annual</div>
@@ -97,117 +92,107 @@ canvas { display:block; position:fixed; top:0; left:0; }
     <a href="annual_massing.html" class="nav-link active">Massing</a>
   </div>
 </div>
-
 <div id="mode-toggle">
   <button class="mode-btn active" id="btn-pile"    onclick="setMode('pile')">↳ Pile</button>
   <button class="mode-btn"        id="btn-explode" onclick="setMode('explode')">⊹ Blocks</button>
 </div>
-
 <div id="hint">drag · orbit<br>scroll · zoom</div>
 <div id="block-tag"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// ── CONFIG ───────────────────────────────────────────────────────────────────
 const TOTAL    = 37;
 const BASE_URL = 'https://raw.githubusercontent.com/Hongyu-C/The-Annual/main/models/';
 const PALETTE  = [0xE8635A,0xF2C94C,0x9B8EC4,0xF4A7B9,0x5BC8C8,0xA8D8A8,0xF7956E,0xB8D4E8];
 
-// ─── RENDERER ─────────────────────────────────────────────────────────────────
+// ── RENDERER ─────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth, innerHeight);
+renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xEDE8E2);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xEDE8E2);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,0.1,5000);
 
-const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 2000);
-
-// ─── LIGHTS ───────────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-const sun = new THREE.DirectionalLight(0xfff5e8, 0.8);
-sun.position.set(15,25,18);
-sun.castShadow = true;
-sun.shadow.mapSize.set(1024,1024);
-sun.shadow.camera.near=0.5; sun.shadow.camera.far=500;
-sun.shadow.camera.left=sun.shadow.camera.bottom=-60;
-sun.shadow.camera.right=sun.shadow.camera.top=60;
-sun.shadow.bias=-0.001;
+// ── LIGHTS ───────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff,1.0));
+const sun=new THREE.DirectionalLight(0xfff5e8,0.8);
+sun.position.set(200,400,250);
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.near=10; sun.shadow.camera.far=2000;
+sun.shadow.camera.left=sun.shadow.camera.bottom=-400;
+sun.shadow.camera.right=sun.shadow.camera.top=400;
+sun.shadow.bias=-0.0005;
 scene.add(sun);
-const fill = new THREE.DirectionalLight(0xddeeff, 0.25);
-fill.position.set(-10,8,-14);
-scene.add(fill);
+scene.add(Object.assign(new THREE.DirectionalLight(0xddeeff,0.3),{position:new THREE.Vector3(-150,100,-200)}));
 
-// ─── FLOOR ────────────────────────────────────────────────────────────────────
-const floorMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(1000,1000),
-  new THREE.ShadowMaterial({opacity:0.05})
-);
-floorMesh.rotation.x = -Math.PI/2;
-floorMesh.receiveShadow = true;
-scene.add(floorMesh);
+// ── FLOOR ────────────────────────────────────────────────────────────────────
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(5000,5000),new THREE.ShadowMaterial({opacity:0.04}));
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+const grid=new THREE.GridHelper(2000,80,0xcccccc,0xdddddd);
+grid.material.opacity=0.18; grid.material.transparent=true; scene.add(grid);
 
-const grid = new THREE.GridHelper(200,60,0xcccccc,0xdddddd);
-grid.material.opacity=0.2; grid.material.transparent=true;
-scene.add(grid);
-
-// ─── OBJ PARSER ───────────────────────────────────────────────────────────────
-// Rhino Z-up → Three Y-up: threeX=rhinoX, threeY=rhinoZ, threeZ=-rhinoY
-// We do NOT apply a global scale — we let the bounding box do the normalisation
-// after all blocks are loaded, by moving them. Vertices stay in Rhino feet units
-// (≈100s of feet) — Three can handle that, we just fit the camera to match.
-function parseOBJ(text) {
-  const rv=[], rn=[], pos=[], nrm=[];
-  for (const raw of text.split('\n')) {
-    const p = raw.trim().split(/\s+/);
-    if (!p[0]) continue;
-    if (p[0]==='v') {
-      rv.push(+p[1], +p[3], -p[2]);   // axis swap
-    } else if (p[0]==='vn') {
-      rn.push(+p[1], +p[3], -p[2]);
-    } else if (p[0]==='f') {
-      const cs = p.slice(1).map(t=>{
+// ── OBJ PARSER ───────────────────────────────────────────────────────────────
+// Rhino Z-up → Three.js Y-up:  X→X,  Z→Y,  Y→-Z
+function parseOBJ(text){
+  const rv=[],rn=[],pos=[],nrm=[];
+  for(const raw of text.split('\n')){
+    const p=raw.trim().split(/\s+/);
+    if(!p[0])continue;
+    if(p[0]==='v' ){rv.push(+p[1],+p[3],-p[2]);}
+    else if(p[0]==='vn'){rn.push(+p[1],+p[3],-p[2]);}
+    else if(p[0]==='f'){
+      const cs=p.slice(1).map(t=>{
         const s=t.split('/');
-        return {vi:(+s[0])-1, ni:s.length>=3&&s[2]!==''?(+s[2])-1:(+s[0])-1};
+        return{vi:(+s[0])-1,ni:s.length>=3&&s[2]!==''?(+s[2])-1:(+s[0])-1};
       });
-      for (let i=1;i<cs.length-1;i++) {
-        for (const c of [cs[0],cs[i],cs[i+1]]) {
+      for(let i=1;i<cs.length-1;i++){
+        for(const c of[cs[0],cs[i],cs[i+1]]){
           pos.push(rv[c.vi*3],rv[c.vi*3+1],rv[c.vi*3+2]);
-          if (rn.length) nrm.push(rn[c.ni*3],rn[c.ni*3+1],rn[c.ni*3+2]);
+          if(rn.length)nrm.push(rn[c.ni*3],rn[c.ni*3+1],rn[c.ni*3+2]);
         }
       }
     }
   }
   const geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
-  if (nrm.length) geo.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(nrm),3));
+  if(nrm.length)geo.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(nrm),3));
   else geo.computeVertexNormals();
   return geo;
 }
 
-// ─── BLOCK STORE ──────────────────────────────────────────────────────────────
+// ── BLOCK STORE ──────────────────────────────────────────────────────────────
 const blocks=[];
 let currentMode='pile';
 
-// ─── LOAD ─────────────────────────────────────────────────────────────────────
+// squish state per block — for soft-body feel on hover
+// We animate the material emissive + a tiny Y-scale squish only on mouseenter
+// Scale is reset immediately on mouseleave so raycaster is unaffected next frame
+
+// ── LOAD ─────────────────────────────────────────────────────────────────────
 let loaded=0;
 const lbar=document.getElementById('lbar');
 const lcount=document.getElementById('lcount');
 
-async function loadAll() {
+async function loadAll(){
   const promises=[];
-  for (let i=1;i<=TOTAL;i++) {
+  for(let i=1;i<=TOTAL;i++){
     const idx=String(i).padStart(2,'0');
     promises.push(
       fetch(`${BASE_URL}Object_${idx}.obj`)
-        .then(r=>{if(!r.ok)throw r.status; return r.text();})
+        .then(r=>{if(!r.ok)throw r.status;return r.text();})
         .then(text=>{
           const geo=parseOBJ(text);
-          const mesh=new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-            color:PALETTE[(i-1)%PALETTE.length], roughness:0.55, metalness:0.05
-          }));
+          const mat=new THREE.MeshStandardMaterial({
+            color:PALETTE[(i-1)%PALETTE.length],
+            roughness:0.5,metalness:0.05,
+          });
+          const mesh=new THREE.Mesh(geo,mat);
           mesh.castShadow=mesh.receiveShadow=true;
           mesh.userData.idx=i;
           scene.add(mesh);
@@ -216,7 +201,9 @@ async function loadAll() {
             homePos:new THREE.Vector3(),
             targetPos:new THREE.Vector3(),
             wobblePhase:Math.random()*Math.PI*2,
-            wobbleAmp:0,
+            // squish animation state
+            squishT:0,     // 0→1 progress of squish
+            squishing:false,
           });
         })
         .catch(e=>console.warn(`Object_${idx}.obj failed:`,e))
@@ -231,36 +218,40 @@ async function loadAll() {
   onAllLoaded();
 }
 
-function onAllLoaded() {
-  if (!blocks.length){console.error('no blocks');return;}
-
-  // compute full bounding box
+function onAllLoaded(){
+  if(!blocks.length){console.error('no blocks');return;}
   const box=new THREE.Box3();
   blocks.forEach(b=>box.expandByObject(b.mesh));
   const center=new THREE.Vector3(); box.getCenter(center);
   const size=new THREE.Vector3();   box.getSize(size);
 
-  // shift so massing sits centred at x=0, z=0, bottom at y=0
+  // centre XZ, sit on Y=0
   blocks.forEach(b=>{
-    b.mesh.position.x -= center.x;
-    b.mesh.position.y -= box.min.y;
-    b.mesh.position.z -= center.z;
+    b.mesh.position.x-=center.x;
+    b.mesh.position.y-=box.min.y;
+    b.mesh.position.z-=center.z;
     b.homePos.copy(b.mesh.position);
     b.targetPos.copy(b.mesh.position);
   });
 
-  // update floor/grid to y=0
-  floorMesh.position.y=0;
-  grid.position.y=0.1;
+  floor.position.y=0; grid.position.y=1;
 
-  // fit camera: look at centre of massing
-  const H = size.y;
-  const D = Math.max(size.x, size.z);
-  orb.r   = D*1.5 + H*0.5;
-  orbTarget.set(0, H*0.4, 0);
+  // ── Camera: look slightly from above and front ───────────────────────────
+  // phi=0 = straight down, phi=PI/2 = horizontal
+  // We want a nice 3/4 isometric-ish view → phi ~0.7
+  const H=size.y, D=Math.max(size.x,size.z);
+  orb.r     = D*1.4+H*0.6;
+  orb.phi   = 0.72;   // ~41° above horizontal — good isometric view
+  orb.theta = 0.55;
+  orbTarget.set(0,H*0.38,0);
   applyOrbit();
 
-  // hide loader
+  // update sun shadow to cover actual massing size
+  const halfD=Math.max(D,H)*0.7;
+  sun.shadow.camera.left=sun.shadow.camera.bottom=-halfD;
+  sun.shadow.camera.right=sun.shadow.camera.top=halfD;
+  sun.shadow.camera.updateProjectionMatrix();
+
   const el=document.getElementById('loading');
   el.style.opacity='0';
   setTimeout(()=>el.remove(),800);
@@ -268,127 +259,157 @@ function onAllLoaded() {
 
 loadAll();
 
-// ─── ORBIT ────────────────────────────────────────────────────────────────────
-const orb={theta:0.4,phi:0.45,r:300};  // phi<0.5 = looking down from above
-const orbTarget=new THREE.Vector3(0,50,0);
+// ── ORBIT — full spherical, no gimbal lock ─────────────────────────────────
+// phi: 0.05 (near top-down) → 1.45 (near horizontal, slightly below equator)
+// theta: full 360°
+const orb={theta:0.55, phi:0.72, r:500};
+const orbTarget=new THREE.Vector3(0,80,0);
 
 function applyOrbit(){
+  const sinP=Math.sin(orb.phi), cosP=Math.cos(orb.phi);
+  const sinT=Math.sin(orb.theta),cosT=Math.cos(orb.theta);
   camera.position.set(
-    orbTarget.x+orb.r*Math.sin(orb.phi)*Math.sin(orb.theta),
-    orbTarget.y+orb.r*Math.cos(orb.phi),
-    orbTarget.z+orb.r*Math.sin(orb.phi)*Math.cos(orb.theta)
+    orbTarget.x+orb.r*sinP*sinT,
+    orbTarget.y+orb.r*cosP,
+    orbTarget.z+orb.r*sinP*cosT
   );
   camera.lookAt(orbTarget);
 }
 applyOrbit();
 
-// ─── INTERACTION ──────────────────────────────────────────────────────────────
-let isOrbiting=false, orbitStart={x:0,y:0}, orbitPrev={theta:0,phi:0};
+// ── INTERACTION ──────────────────────────────────────────────────────────────
+let isOrbiting=false, orbitStart={x:0,y:0}, orbitSnap={theta:0,phi:0};
 let hoveredBlock=null, draggedBlock=null;
 const dragPlane=new THREE.Plane();
 const dragHit=new THREE.Vector3();
 const dragOff=new THREE.Vector3();
 const raycaster=new THREE.Raycaster();
 const mouse2d=new THREE.Vector2();
-const cursor=document.getElementById('cursor');
+const cursorEl=document.getElementById('cursor');
 const blockTag=document.getElementById('block-tag');
 
+// helper: set emissive safely
+function setEmissive(block,v){
+  if(block&&block.mesh.material) block.mesh.material.emissive.setScalar(v);
+}
+
 window.addEventListener('mousemove',e=>{
-  cursor.style.left=e.clientX+'px';
-  cursor.style.top=e.clientY+'px';
+  cursorEl.style.left=e.clientX+'px';
+  cursorEl.style.top=e.clientY+'px';
   mouse2d.set((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
 
-  if (draggedBlock){
+  // ── dragging ──────────────────────────────────────────────────────────────
+  if(draggedBlock){
     raycaster.setFromCamera(mouse2d,camera);
-    if (raycaster.ray.intersectPlane(dragPlane,dragHit))
+    if(raycaster.ray.intersectPlane(dragPlane,dragHit))
       draggedBlock.targetPos.copy(dragHit.clone().sub(dragOff));
     return;
   }
 
-  if (isOrbiting){
-    orb.theta=orbitPrev.theta-(e.clientX-orbitStart.x)*0.006;
-    orb.phi=Math.max(0.1,Math.min(Math.PI*0.46,orbitPrev.phi+(e.clientY-orbitStart.y)*0.006));
+  // ── orbiting ──────────────────────────────────────────────────────────────
+  if(isOrbiting){
+    const dx=e.clientX-orbitStart.x;
+    const dy=e.clientY-orbitStart.y;
+    orb.theta=orbitSnap.theta-dx*0.007;
+    // full vertical range: 0.05 (top-down) to 1.45 (low angle)
+    orb.phi=Math.max(0.05,Math.min(1.45,orbitSnap.phi+dy*0.007));
     applyOrbit();
     return;
   }
 
+  // ── hover detection ───────────────────────────────────────────────────────
   raycaster.setFromCamera(mouse2d,camera);
-  const hits=raycaster.intersectObjects(blocks.map(b=>b.mesh));
-  if (hits.length){
+  const meshList=blocks.map(b=>b.mesh);
+  const hits=raycaster.intersectObjects(meshList);
+
+  if(hits.length){
     const hit=blocks.find(b=>b.mesh===hits[0].object);
-    if (hit!==hoveredBlock){
-      // clear old hover
-      if(hoveredBlock) hoveredBlock.mesh.material.emissive.setScalar(0);
+    if(!hit)return;
+    if(hit!==hoveredBlock){
+      setEmissive(hoveredBlock,0);
       hoveredBlock=hit;
-      // highlight new hover with emissive glow
-      if(hit) hit.mesh.material.emissive.setScalar(0.12);
+      setEmissive(hit,0.1);
+      // trigger squish
+      hit.squishT=0; hit.squishing=true;
     }
-    cursor.classList.add('hovering');
+    cursorEl.classList.add('hovering');
     blockTag.style.opacity='1';
     blockTag.style.left=(e.clientX+14)+'px';
     blockTag.style.top=(e.clientY-8)+'px';
+    // pile mode: no interaction label; explode mode: show drag hint
     blockTag.textContent=currentMode==='explode'
       ?`Block ${hit.mesh.userData.idx} · drag to move`
       :`Block ${hit.mesh.userData.idx}`;
   } else {
-    if(hoveredBlock){ hoveredBlock.mesh.material.emissive.setScalar(0); hoveredBlock=null; }
-    cursor.classList.remove('hovering');
+    if(hoveredBlock){ setEmissive(hoveredBlock,0); hoveredBlock=null; }
+    cursorEl.classList.remove('hovering');
     blockTag.style.opacity='0';
   }
 });
 
 window.addEventListener('mousedown',e=>{
   if(e.button!==0)return;
-  if(hoveredBlock&&currentMode==='explode'){
+
+  // only allow block drag in explode mode
+  if(hoveredBlock && currentMode==='explode'){
     draggedBlock=hoveredBlock;
-    draggedBlock.mesh.material.emissive.setScalar(0);
-    cursor.classList.add('grabbed');
-    const camDir=new THREE.Vector3(); camera.getWorldDirection(camDir);
+    setEmissive(draggedBlock,0);
+    cursorEl.classList.add('grabbed');
+    cursorEl.classList.remove('hovering');
+    // build drag plane facing camera through block centre
+    const camDir=new THREE.Vector3();
+    camera.getWorldDirection(camDir);
     dragPlane.setFromNormalAndCoplanarPoint(camDir,draggedBlock.mesh.position);
     raycaster.setFromCamera(mouse2d,camera);
     if(raycaster.ray.intersectPlane(dragPlane,dragHit))
       dragOff.copy(dragHit.clone().sub(draggedBlock.mesh.position));
     return;
   }
+
+  // otherwise orbit
   isOrbiting=true;
   orbitStart={x:e.clientX,y:e.clientY};
-  orbitPrev={theta:orb.theta,phi:orb.phi};
+  orbitSnap={theta:orb.theta,phi:orb.phi};
 });
 
 window.addEventListener('mouseup',()=>{
   if(draggedBlock){
-    draggedBlock.homePos.copy(draggedBlock.targetPos);
+    draggedBlock.homePos.copy(draggedBlock.targetPos); // new rest position
     draggedBlock=null;
-    cursor.classList.remove('grabbed');
+    cursorEl.classList.remove('grabbed');
   }
   isOrbiting=false;
 });
 
+// scroll = zoom (adjust orbit radius)
 window.addEventListener('wheel',e=>{
-  orb.r=Math.max(10,Math.min(2000,orb.r+e.deltaY*0.5));
+  orb.r=Math.max(20,Math.min(3000,orb.r+e.deltaY*0.8));
   applyOrbit();
 },{passive:true});
 
-// ─── MODE SWITCH ──────────────────────────────────────────────────────────────
+// ── MODE SWITCH ───────────────────────────────────────────────────────────────
 function setMode(mode){
   currentMode=mode;
   document.getElementById('btn-pile').classList.toggle('active',mode==='pile');
   document.getElementById('btn-explode').classList.toggle('active',mode==='explode');
 
   if(mode==='pile'){
-    blocks.forEach(b=>b.targetPos.copy(b.homePos));
+    // every block returns home
+    blocks.forEach(b=>{ b.targetPos.copy(b.homePos); });
     document.getElementById('hint').innerHTML='drag · orbit<br>scroll · zoom';
   } else {
+    // spread blocks outward from massing centre on XZ plane
     const box=new THREE.Box3();
     blocks.forEach(b=>box.expandByPoint(b.homePos));
     const sz=new THREE.Vector3(); box.getSize(sz);
-    const spread=Math.max(sz.x,sz.z)*0.7;
+    const spread=Math.max(sz.x,sz.z)*0.75;
+
     blocks.forEach((b,i)=>{
-      const angle=(i/blocks.length)*Math.PI*2+Math.random()*0.4;
-      const r=spread*(0.5+Math.random()*0.8);
+      const angle=(i/blocks.length)*Math.PI*2+(Math.random()-0.5)*0.5;
+      const r=spread*(0.45+Math.random()*0.9);
       b.targetPos.set(
         b.homePos.x+Math.cos(angle)*r,
-        b.homePos.y,
+        b.homePos.y,                        // keep original height
         b.homePos.z+Math.sin(angle)*r
       );
     });
@@ -396,19 +417,44 @@ function setMode(mode){
   }
 }
 
-// ─── ANIMATION ────────────────────────────────────────────────────────────────
+// ── ANIMATION ─────────────────────────────────────────────────────────────────
 const clock=new THREE.Clock();
-const SNAP_THRESHOLD=2; // feet — snap when within 2ft of target
 
 function animate(){
   requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),0.05); // cap dt to avoid huge jumps
+
   blocks.forEach(b=>{
+    // ── position lerp — snap once close ──────────────────────────────────
     const dist=b.mesh.position.distanceTo(b.targetPos);
-    if(dist>SNAP_THRESHOLD) b.mesh.position.lerp(b.targetPos,0.10);
-    else b.mesh.position.copy(b.targetPos);
-    // scale always 1 — any scale animation breaks raycaster hover detection
-    b.mesh.scale.setScalar(1.0);
+    if(dist>1){
+      b.mesh.position.lerp(b.targetPos,0.09);
+    } else {
+      b.mesh.position.copy(b.targetPos);
+    }
+
+    // ── soft squish on hover entry ────────────────────────────────────────
+    // squishT goes 0→1 over ~0.25s, driving a sine-based Y-squish
+    // Scale is reset to 1 after squish to not break raycaster
+    if(b.squishing){
+      b.squishT+=dt*4; // 0→1 in 0.25s
+      if(b.squishT>=1){
+        b.squishT=1; b.squishing=false;
+        b.mesh.scale.set(1,1,1); // fully reset
+      } else {
+        // squish: compress Y, expand XZ slightly (volume-preserving feel)
+        const s=Math.sin(b.squishT*Math.PI); // 0→1→0 arc
+        const sy=1-s*0.07;   // max 7% compression on Y
+        const sxz=1+s*0.035; // 3.5% expansion on XZ
+        b.mesh.scale.set(sxz,sy,sxz);
+      }
+    }
+    // if not squishing and not hovered, ensure scale is exactly 1
+    if(!b.squishing && b!==hoveredBlock){
+      b.mesh.scale.set(1,1,1);
+    }
   });
+
   renderer.render(scene,camera);
 }
 animate();
