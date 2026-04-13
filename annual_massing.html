@@ -391,13 +391,12 @@ window.addEventListener('mousedown',e=>{
     setEmissive(draggedBlock,0);
     cursorEl.classList.add('grabbed');
     cursorEl.classList.remove('hovering');
-    // Plane: normal=(0,1,0), passes through block's current position
-    // THREE.Plane equation: dot(normal, point) + constant = 0
-    // so constant = -dot((0,1,0), position) = -position.y
     const blockY=draggedBlock.mesh.position.y;
     dragPlaneH.set(new THREE.Vector3(0,1,0), -blockY);
     raycaster.setFromCamera(mouse2d,camera);
-    if(raycaster.ray.intersectPlane(dragPlaneH,dragHit)){
+    const hit=raycaster.ray.intersectPlane(dragPlaneH,dragHit);
+    console.log('drag start | blockY:',blockY,'| planeHit:',hit,'| dragHit:',dragHit.toArray());
+    if(hit){
       dragOffXZ.x=dragHit.x-draggedBlock.mesh.position.x;
       dragOffXZ.z=dragHit.z-draggedBlock.mesh.position.z;
     } else {
@@ -405,6 +404,7 @@ window.addEventListener('mousedown',e=>{
     }
     return;
   }
+  console.log('mousedown | mode:',currentMode,'| hoveredBlock:',hoveredBlock);
   isOrbiting=true;
   orbitStart={x:e.clientX,y:e.clientY};
   orbitSnap={theta:orb.theta,phi:orb.phi};
