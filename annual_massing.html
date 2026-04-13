@@ -162,8 +162,8 @@ function parseOBJ(text){
   const n=rhinoV.length/3;
   for(let i=0;i<n;i++){
     cx+=rhinoV[i*3];
-    cy+=-rhinoV[i*3+2];  // threeY = -rhinoZ (flipped)
-    cz+=-rhinoV[i*3+1];  // threeZ = -rhinoY
+    cy+=rhinoV[i*3+1];  // rhinoY is already height
+    cz+=rhinoV[i*3+2];
   }
   cx/=n; cy/=n; cz/=n;
   const centroid=new THREE.Vector3(cx,cy,cz);
@@ -187,13 +187,13 @@ function parseOBJ(text){
         const vi=c.vi;
         // axis swap + subtract centroid → local coords
         pos.push(
-          rhinoV[vi*3  ]-cx,       // X stays X, minus centroid.x
-         -rhinoV[vi*3+2]-cy,       // -rhinoZ → threeY (flipped)
-         -rhinoV[vi*3+1]-cz        // -rhinoY → threeZ
+          rhinoV[vi*3  ]-cx,
+          rhinoV[vi*3+1]-cy,
+          rhinoV[vi*3+2]-cz
         );
         if(rhinoN.length){
           const ni=c.ni;
-          nrm.push(rhinoN[ni*3], -rhinoN[ni*3+2], -rhinoN[ni*3+1]);
+          nrm.push(rhinoN[ni*3], rhinoN[ni*3+1], rhinoN[ni*3+2]);
         }
       }
     }
