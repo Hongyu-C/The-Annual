@@ -89,6 +89,7 @@ canvas { display:block; position:fixed; top:0; left:0; }
 <div id="mode-toggle">
   <button class="mode-btn active" id="btn-pile"    onclick="setMode('pile')">↳ Pile</button>
   <button class="mode-btn"        id="btn-explode" onclick="setMode('explode')">⊹ Blocks</button>
+  <button class="mode-btn"        id="btn-reset"   onclick="resetAll()">↺ Reset</button>
 </div>
 <div id="hint">drag · orbit<br>scroll · zoom</div>
 <div id="block-tag"></div>
@@ -271,7 +272,7 @@ function onAllLoaded(){
     b.mesh.position.y -= shiftY;
     b.mesh.position.z -= shiftZ;
     b.homePos.copy(b.mesh.position);
-    b.originalPos.copy(b.mesh.position);
+    b.originalPos.copy(b.mesh.position);  // update AFTER shift
     b.targetPos.copy(b.mesh.position);
   });
 
@@ -439,7 +440,15 @@ function setMode(mode){
   }
 }
 
-// ── ANIMATION ─────────────────────────────────────────────────────────────────
+// ── RESET ─────────────────────────────────────────────────────────────────────
+function resetAll(){
+  // restore every block to its original pile position
+  blocks.forEach(b=>{
+    b.homePos.copy(b.originalPos);
+    b.targetPos.copy(b.originalPos);
+  });
+  setMode('pile');
+}
 function animate(){
   requestAnimationFrame(animate);
   blocks.forEach(b=>{
