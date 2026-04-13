@@ -391,14 +391,18 @@ window.addEventListener('mousemove',e=>{
 window.addEventListener('mousedown',e=>{
   if(e.button!==0) return;
   if(currentMode==='explode' && hoveredBlock){
+    hoveredBlock.squishT=1; // squish immediately on click
     draggedBlock=hoveredBlock;
+    draggedBlock.dragVelX=0;
+    draggedBlock.dragVelZ=0;
     setEmissive(draggedBlock,0);
     cursorEl.classList.add('grabbed');
     cursorEl.classList.remove('hovering');
     const blockY=draggedBlock.mesh.position.y;
     dragPlaneH.set(new THREE.Vector3(0,1,0), -blockY);
     raycaster.setFromCamera(mouse2d,camera);
-    if(hit){
+    const planeHit=raycaster.ray.intersectPlane(dragPlaneH,dragHit);
+    if(planeHit){
       dragOffXZ.x=dragHit.x-draggedBlock.mesh.position.x;
       dragOffXZ.z=dragHit.z-draggedBlock.mesh.position.z;
     } else {
@@ -494,11 +498,9 @@ function animate(){
       b.mesh.position.x+=b.vel.x*dt;
       b.mesh.position.y+=b.vel.y*dt;
       b.mesh.position.z+=b.vel.z*dt;
-      if(b.mesh.position.y<=b.floorY){
-        b.mesh.position.y=b.floorY;
-        if(Math.abs(b.vel.y)>8){
-          b.squishT=1; // trigger squish on impact
-        }
+      // fall to ground (y=0)
+      if(b.mesh.position.y<=0){
+        b.mesh.position.y=0;
         b.vel.y*=-BOUNCE;
         b.vel.x*=0.65; b.vel.z*=0.65;
         if(Math.abs(b.vel.y)<5 && Math.abs(b.vel.x)<3){
