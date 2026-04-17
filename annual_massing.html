@@ -7,15 +7,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:#1e1c1a; overflow:hidden; font-family:'DM Sans',sans-serif; cursor:none; }
+body { background:#EDE8E2; overflow:hidden; font-family:'DM Sans',sans-serif; cursor:none; }
 canvas { display:block; position:fixed; top:0; left:0; }
 #cursor {
-  position:fixed; width:12px; height:12px; background:#fff;
+  position:fixed; width:12px; height:12px; background:#1a1a1a;
   border-radius:50%; pointer-events:none; z-index:1000;
   transform:translate(-50%,-50%);
   transition: width .18s, height .18s, background .18s;
 }
-#cursor.hovering { width:30px; height:30px; background:rgba(255,255,255,.1); border:1.5px solid #fff; }
+#cursor.hovering { width:30px; height:30px; background:rgba(26,26,26,.08); border:1.5px solid #1a1a1a; }
 #cursor.grabbed  { width:18px; height:18px; background:#E8635A; border:none; }
 #nav {
   position:fixed; top:0; left:0; right:0; z-index:200;
@@ -23,50 +23,176 @@ canvas { display:block; position:fixed; top:0; left:0; }
   padding:24px 40px; pointer-events:none;
 }
 .nav-logo { pointer-events:auto; }
-.nav-logo-sub { font-size:10px; letter-spacing:.28em; text-transform:uppercase; color:#666; }
-.nav-logo-main { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#fff; margin-top:2px; }
+.nav-logo-sub { font-size:10px; letter-spacing:.28em; text-transform:uppercase; color:#aaa; }
+.nav-logo-main { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#1a1a1a; margin-top:2px; }
 .nav-links { pointer-events:auto; display:flex; gap:8px; }
 .nav-link {
-  background:rgba(255,255,255,.08); backdrop-filter:blur(8px);
-  border:1px solid rgba(255,255,255,.12); padding:8px 18px;
+  background:rgba(255,255,255,.88); backdrop-filter:blur(8px);
+  border:1px solid rgba(0,0,0,.08); padding:8px 18px;
   font-size:10px; font-weight:500; letter-spacing:.12em; text-transform:uppercase;
-  color:#888; cursor:pointer; border-radius:100px; text-decoration:none; transition:all .2s;
+  color:#666; cursor:pointer; border-radius:100px; text-decoration:none; transition:all .2s;
 }
-.nav-link.active { background:rgba(255,255,255,.9); color:#1a1a1a; border-color:transparent; }
-.nav-link:hover:not(.active) { background:rgba(255,255,255,.15); color:#fff; }
+.nav-link.active { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
+.nav-link:hover:not(.active) { background:#fff; color:#1a1a1a; }
 #mode-toggle {
   position:fixed; bottom:40px; left:50%; transform:translateX(-50%);
   z-index:200; display:flex;
-  background:rgba(255,255,255,.07); backdrop-filter:blur(12px);
-  border:1px solid rgba(255,255,255,.1); border-radius:100px; padding:4px;
+  background:rgba(255,255,255,.92); backdrop-filter:blur(12px);
+  border:1px solid rgba(0,0,0,.08); border-radius:100px; padding:4px;
 }
 .mode-btn {
   padding:10px 28px; font-size:10px; font-weight:500;
   letter-spacing:.12em; text-transform:uppercase;
-  color:#666; border:none; background:transparent; border-radius:100px;
+  color:#999; border:none; background:transparent; border-radius:100px;
   cursor:pointer; transition:all .3s;
 }
-.mode-btn.active { background:rgba(255,255,255,.9); color:#1a1a1a; }
+.mode-btn.active { background:#1a1a1a; color:#fff; }
 #hint {
   position:fixed; bottom:44px; right:40px; z-index:200;
   font-size:10px; letter-spacing:.15em; text-transform:uppercase;
-  color:#444; text-align:right; line-height:1.9; pointer-events:none;
+  color:#bbb; text-align:right; line-height:1.9; pointer-events:none;
 }
 #loading {
-  position:fixed; inset:0; background:#1e1c1a; z-index:500;
+  position:fixed; inset:0; background:#EDE8E2; z-index:500;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
   transition:opacity .8s ease;
 }
-.loading-title { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; color:#fff; }
-.loading-bar-wrap { width:180px; height:2px; background:rgba(255,255,255,.1); border-radius:2px; overflow:hidden; }
+.loading-title { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; color:#1a1a1a; }
+.loading-bar-wrap { width:180px; height:2px; background:rgba(0,0,0,.08); border-radius:2px; overflow:hidden; }
 .loading-bar { height:100%; background:#E8635A; border-radius:2px; width:0%; transition:width .2s; }
-.loading-count { font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:#555; }
-#block-tag {
-  position:fixed; z-index:300; background:rgba(255,255,255,.9); color:#1a1a1a;
-  font-size:10px; letter-spacing:.12em; text-transform:uppercase;
-  padding:5px 12px; border-radius:100px;
-  pointer-events:none; opacity:0; transition:opacity .15s; white-space:nowrap;
+.loading-count { font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:#aaa; }
+/* ── PERSON PANEL ── */
+#person-panel {
+  position:fixed; right:24px; top:50%; transform:translateY(-50%);
+  z-index:200; width:160px;
+  display:flex; flex-direction:column; gap:8px;
+  pointer-events:auto;
 }
+#spawn-btn {
+  width:100%; padding:10px 0;
+  font-family:'DM Sans',sans-serif; font-size:10px; font-weight:500;
+  letter-spacing:.12em; text-transform:uppercase;
+  background:rgba(255,255,255,.92); backdrop-filter:blur(8px);
+  border:1px solid rgba(0,0,0,.08); border-radius:100px;
+  cursor:pointer; color:#1a1a1a; transition:all .2s;
+}
+#spawn-btn:hover { background:#1a1a1a; color:#fff; }
+#person-list { display:flex; flex-direction:column; gap:6px; }
+.person-card {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 12px;
+  background:rgba(255,255,255,.85); backdrop-filter:blur(8px);
+  border:1px solid rgba(0,0,0,.08); border-radius:12px;
+  cursor:pointer; transition:all .2s;
+  font-family:'DM Sans',sans-serif; font-size:10px; color:#555;
+  letter-spacing:.05em;
+}
+.person-card:hover { background:#fff; transform:translateX(-2px); }
+.person-card.active { border-color:#1a1a1a; background:#fff; color:#1a1a1a; font-weight:500; }
+.person-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.person-label { flex:1; }
+.person-pov { font-size:9px; color:#aaa; }
+
+/* ── POV MODE ── */
+#pov-bar {
+  position:fixed; bottom:40px; left:50%; transform:translateX(-50%);
+  z-index:300; display:none; align-items:center; gap:12px;
+  background:rgba(26,26,26,.85); backdrop-filter:blur(12px);
+  border-radius:100px; padding:10px 20px;
+  font-family:'DM Sans',sans-serif; font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:#fff;
+}
+#pov-bar.visible { display:flex; }
+#pov-exit {
+  background:rgba(255,255,255,.15); border:none; border-radius:100px;
+  padding:4px 12px; font-family:'DM Sans',sans-serif; font-size:10px;
+  letter-spacing:.12em; text-transform:uppercase; color:#fff; cursor:pointer;
+  transition:background .2s;
+}
+#pov-exit:hover { background:rgba(255,255,255,.3); }
+#pov-crosshair {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  z-index:299; pointer-events:none; display:none;
+  width:20px; height:20px;
+}
+#pov-crosshair.visible { display:block; }
+#pov-crosshair::before, #pov-crosshair::after {
+  content:''; position:absolute; background:rgba(255,255,255,.7);
+  border-radius:2px;
+}
+#pov-crosshair::before { width:2px; height:14px; left:9px; top:3px; }
+#pov-crosshair::after  { width:14px; height:2px; left:3px; top:9px; }
+
+/* ── PROGRAM PANEL ── */
+#program-panel {
+  position:fixed; left:24px; top:50%; transform:translateY(-50%);
+  z-index:200; width:180px;
+  display:none; flex-direction:column; gap:6px;
+  pointer-events:auto;
+}
+.prog-section-label {
+  font-family:'DM Sans',sans-serif; font-size:9px; font-weight:500;
+  letter-spacing:.18em; text-transform:uppercase; color:#bbb;
+  padding:0 4px; margin-top:4px;
+}
+.prog-btn {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 12px;
+  background:rgba(255,255,255,.85); backdrop-filter:blur(8px);
+  border:1px solid rgba(0,0,0,.08); border-radius:10px;
+  cursor:pointer; transition:all .2s;
+  font-family:'DM Sans',sans-serif; font-size:10px; color:#555;
+  text-align:left; width:100%;
+}
+.prog-btn:hover { background:#fff; transform:translateX(2px); }
+.prog-btn.active { border-color:#1a1a1a; background:#fff; color:#1a1a1a; font-weight:600; }
+.prog-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.prog-sep { height:1px; background:rgba(0,0,0,.06); margin:4px 0; }
+
+/* ── CIRCUIT PANEL ── */
+#circuit-panel {
+  position:fixed; left:24px; top:50%; transform:translateY(-50%);
+  z-index:200; width:180px;
+  display:flex; flex-direction:column; gap:6px;
+  pointer-events:auto; display:none;
+}
+.circ-btn {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 12px;
+  background:rgba(255,255,255,.85); backdrop-filter:blur(8px);
+  border:1px solid rgba(0,0,0,.08); border-radius:10px;
+  cursor:pointer; transition:all .2s;
+  font-family:'DM Sans',sans-serif; font-size:10px; color:#555;
+  text-align:left; width:100%;
+}
+.circ-btn:hover { background:#fff; }
+.circ-btn.active { border-color:#1a1a1a; background:#fff; color:#1a1a1a; font-weight:600; }
+.circ-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+/* ── INFO CARD ── */
+#info-card {
+  position:fixed; z-index:400;
+  width:220px;
+  background:#fff; border-radius:16px;
+  padding:16px; box-shadow:0 8px 32px rgba(0,0,0,.12);
+  pointer-events:none; opacity:0;
+  transform:scale(0.75) translateY(8px);
+  font-family:'DM Sans',sans-serif;
+}
+#info-card.visible { opacity:1; pointer-events:auto; }
+.card-close {
+  position:absolute; top:10px; right:12px;
+  font-size:14px; color:#aaa; cursor:pointer;
+  background:none; border:none; pointer-events:auto;
+}
+.card-emoji { font-size:28px; margin-bottom:8px; display:block; }
+.card-program {
+  font-size:9px; font-weight:600; letter-spacing:.18em;
+  text-transform:uppercase; margin-bottom:4px;
+}
+.card-name { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; color:#1a1a1a; margin-bottom:6px; }
+.card-type { font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:#aaa; margin-bottom:8px; }
+.card-desc { font-size:11px; color:#666; line-height:1.55; }
 </style>
 </head>
 <body>
@@ -83,22 +209,104 @@ canvas { display:block; position:fixed; top:0; left:0; }
   </div>
   <div class="nav-links">
     <a href="annual_program.html" class="nav-link">Program</a>
+    <a href="annual_blocks.html" class="nav-link">Form Language</a>
     <a href="annual_massing.html" class="nav-link active">Massing</a>
   </div>
 </div>
 <div id="mode-toggle">
   <button class="mode-btn active" id="btn-pile"    onclick="setMode('pile')">↳ Pile</button>
   <button class="mode-btn"        id="btn-explode" onclick="setMode('explode')">⊹ Blocks</button>
+  <button class="mode-btn"        id="btn-program" onclick="setMode('program')">◈ Program</button>
+  <button class="mode-btn"        id="btn-circuit" onclick="setMode('circuit')">⟳ Circuit</button>
   <button class="mode-btn"        id="btn-reset"   onclick="resetAll()">↺ Reset</button>
 </div>
-<div id="hint">drag · orbit<br>scroll · zoom</div>
+<div id="hint">left drag · orbit<br>right drag · pan<br>scroll · zoom</div>
 <div id="block-tag"></div>
+
+<!-- Program panel -->
+<div id="program-panel">
+  <div class="prog-section-label">Program</div>
+  <button class="prog-btn active" id="prog-all" onclick="filterProgram('all')">
+    <div class="prog-dot" style="background:#1a1a1a"></div>All
+  </button>
+  <div class="prog-sep"></div>
+  <button class="prog-btn" id="prog-watch" onclick="filterProgram('watch')">
+    <div class="prog-dot" style="background:#C0392B"></div>Watch
+  </button>
+  <button class="prog-btn" id="prog-play" onclick="filterProgram('play')">
+    <div class="prog-dot" style="background:#F2C94C"></div>Play
+  </button>
+  <button class="prog-btn" id="prog-share" onclick="filterProgram('share')">
+    <div class="prog-dot" style="background:#7BB8E8"></div>Share
+  </button>
+  <button class="prog-btn" id="prog-learn" onclick="filterProgram('learn')">
+    <div class="prog-dot" style="background:#9B8EC4"></div>Learn
+  </button>
+  <button class="prog-btn" id="prog-gather" onclick="filterProgram('gather')">
+    <div class="prog-dot" style="background:#F4A7B9"></div>Gather
+  </button>
+  <button class="prog-btn" id="prog-hang" onclick="filterProgram('hang')">
+    <div class="prog-dot" style="background:#5BC8C8"></div>Hang
+  </button>
+  <button class="prog-btn" id="prog-boh" onclick="filterProgram('boh')">
+    <div class="prog-dot" style="background:#A8D8A8"></div>BOH
+  </button>
+  <div class="prog-sep"></div>
+  <button class="prog-btn" id="prog-explode-btn" onclick="toggleProgramExplode()" style="color:#888">
+    <div class="prog-dot" style="background:transparent;border:1px solid #ccc"></div>Explode ⊹
+  </button>
+</div>
+
+<!-- Circuit panel -->
+<div id="circuit-panel">
+  <div class="prog-section-label">Circuit</div>
+  <button class="circ-btn active" id="circ-all" onclick="filterCircuit('all')">
+    <div class="circ-dot" style="background:#1a1a1a"></div>All
+  </button>
+  <div class="prog-sep"></div>
+  <button class="circ-btn" id="circ-museum" onclick="filterCircuit('museum')">
+    <div class="circ-dot" style="background:#E8635A"></div>Museum Circuit
+  </button>
+  <button class="circ-btn" id="circ-wander" onclick="filterCircuit('wander')">
+    <div class="circ-dot" style="background:#F2C94C"></div>Wandering
+  </button>
+  <button class="circ-btn" id="circ-pavilion" onclick="filterCircuit('pavilion')">
+    <div class="circ-dot" style="background:#9B8EC4"></div>Pavilions
+  </button>
+  <button class="circ-btn" id="circ-room" onclick="filterCircuit('room')">
+    <div class="circ-dot" style="background:#5BC8C8"></div>Rooms
+  </button>
+  <div class="prog-sep"></div>
+  <button class="circ-btn" id="circ-explode-btn" onclick="toggleCircuitExplode()" style="color:#888">
+    <div class="circ-dot" style="background:transparent;border:1px solid #ccc"></div>Layer ⊹
+  </button>
+</div>
+
+<!-- Info card -->
+<div id="info-card">
+  <button class="card-close" onclick="closeCard()">✕</button>
+  <span class="card-emoji" id="card-emoji">📦</span>
+  <div class="card-program" id="card-program">Program</div>
+  <div class="card-name" id="card-name">Block Name</div>
+  <div class="card-type" id="card-type">Type</div>
+  <div class="card-desc" id="card-desc">Description</div>
+</div>
+
+<div id="person-panel">
+  <button id="spawn-btn" onclick="spawnPerson()">+ Add Person</button>
+  <div id="person-list"></div>
+</div>
+<div id="pov-bar">
+  <span id="pov-label">POV</span>
+  <button id="pov-exit" onclick="exitPOV()">↩ Exit</button>
+</div>
+<div id="pov-crosshair"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const TOTAL    = 37;
 const BASE_URL = 'https://raw.githubusercontent.com/Hongyu-C/The-Annual/main/models/';
-const PALETTE  = [0xE8635A,0xF2C94C,0x9B8EC4,0xF4A7B9,0x5BC8C8,0xA8D8A8,0xF7956E,0xB8D4E8];
+const PALETTE  = [0xE8635A,0xF2C94C,0x9B8EC4,0xF4A7B9,0x5BC8C8,0xA8D8A8,0xF7956E,0x7B9FB8];
 
 // ── RENDERER ──────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({antialias:true});
@@ -109,12 +317,12 @@ renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x1e1c1a);
+scene.background=new THREE.Color(0xEDE8E2);
 const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,0.1,5000);
 
 // ── LIGHTS ────────────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff,1.0));
-const sun=new THREE.DirectionalLight(0xfff5e8,0.8);
+scene.add(new THREE.AmbientLight(0xfff8f0,0.7));
+const sun=new THREE.DirectionalLight(0xfff0d8,1.1);
 sun.position.set(200,400,250);
 sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);
@@ -123,20 +331,21 @@ sun.shadow.camera.left=sun.shadow.camera.bottom=-600;
 sun.shadow.camera.right=sun.shadow.camera.top=600;
 sun.shadow.bias=-0.0005;
 scene.add(sun);
-const fill=new THREE.DirectionalLight(0xddeeff,0.3);
+const fill=new THREE.DirectionalLight(0xffe8d0,0.15);
 fill.position.set(-150,100,-200);
 scene.add(fill);
 
 // ── FLOOR ─────────────────────────────────────────────────────────────────────
 const floorMesh=new THREE.Mesh(
   new THREE.PlaneGeometry(5000,5000),
-  new THREE.ShadowMaterial({opacity:0.04})
+  new THREE.ShadowMaterial({opacity:0.18})
 );
 floorMesh.rotation.x=-Math.PI/2;
+floorMesh.position.y=0;
 floorMesh.receiveShadow=true;
 scene.add(floorMesh);
-const grid=new THREE.GridHelper(2000,80,0x333330,0x2a2826);
-grid.material.opacity=0.6; grid.material.transparent=true;
+const grid=new THREE.GridHelper(2000,80,0xcccccc,0xdddddd);
+grid.material.opacity=0.18; grid.material.transparent=true;
 scene.add(grid);
 
 // ── OBJ PARSER ────────────────────────────────────────────────────────────────
@@ -230,7 +439,7 @@ async function loadAll(){
           const color=new THREE.Color(PALETTE[(i-1)%PALETTE.length]);
           const mat=new THREE.MeshStandardMaterial({
             color: color.clone(),
-            roughness:0.5, metalness:0.05,
+            roughness:0.82, metalness:0.0,
           });
           const mesh=new THREE.Mesh(geo,mat);
           mesh.castShadow=mesh.receiveShadow=true;
@@ -303,6 +512,12 @@ function onAllLoaded(){
   // Y drag limit = 1.8x massing height
   dragYMax = size.y * 1.8;
 
+  // expand shadow camera to cover actual massing footprint
+  const halfD=Math.max(size.x,size.z)*0.75;
+  sun.shadow.camera.left=sun.shadow.camera.bottom=-halfD;
+  sun.shadow.camera.right=sun.shadow.camera.top=halfD;
+  sun.shadow.camera.updateProjectionMatrix();
+
   // Fit camera
   const H=size.y;
   orb.r   = D*1.4+H*0.5;
@@ -310,6 +525,14 @@ function onAllLoaded(){
   orb.theta=0.55;
   orbTarget.set(0, H*0.38, 0);
   applyOrbit();
+
+  // set person scale relative to massing height
+  // a person should be ~1/50 of massing height visually
+  window._massingH  = H;
+  window._massingDX = size.x;
+  window._massingDZ = size.z;
+  window._massingScale = H / 1700;
+  console.log('massing size:', size, '| scale factor:', window._massingScale);
 
   document.getElementById('loading').style.opacity='0';
   setTimeout(()=>document.getElementById('loading').remove(),800);
@@ -333,11 +556,12 @@ applyOrbit();
 
 // ── INTERACTION ───────────────────────────────────────────────────────────────
 let isOrbiting=false, orbitStart={x:0,y:0}, orbitSnap={theta:0,phi:0};
+let isPanning=false, panStart={x:0,y:0}, panSnapTarget={x:0,y:0,z:0};
 let hoveredBlock=null, draggedBlock=null;
-let dragYMax=10000; // set after load from massing height
-const dragPlane=new THREE.Plane(); // camera-facing, updated each frame
+let dragYMax=10000;
+const dragPlane=new THREE.Plane();
 const dragHit=new THREE.Vector3();
-const dragOffset=new THREE.Vector3(); // 3D offset from block centre to hit point
+const dragOffset=new THREE.Vector3();
 const raycaster=new THREE.Raycaster();
 const mouse2d=new THREE.Vector2();
 const cursorEl=document.getElementById('cursor');
@@ -377,6 +601,26 @@ window.addEventListener('mousemove',e=>{
   if(isOrbiting){
     orb.theta=orbitSnap.theta-(e.clientX-orbitStart.x)*0.007;
     orb.phi=Math.max(0.05,Math.min(1.45,orbitSnap.phi+(e.clientY-orbitStart.y)*0.007));
+    applyOrbit();
+    return;
+  }
+
+  if(isPanning){
+    const dx=e.clientX-panStart.x;
+    const dy=e.clientY-panStart.y;
+    // pan speed scales with orbit radius
+    const speed=orb.r*0.0012;
+    // camera right and up vectors
+    const right=new THREE.Vector3();
+    const up=new THREE.Vector3(0,1,0);
+    right.crossVectors(up, new THREE.Vector3(
+      Math.sin(orb.phi)*Math.sin(orb.theta),
+      Math.cos(orb.phi),
+      Math.sin(orb.phi)*Math.cos(orb.theta)
+    )).normalize();
+    orbTarget.x=panSnapTarget.x + right.x*dx*speed;
+    orbTarget.y=panSnapTarget.y - dy*speed;
+    orbTarget.z=panSnapTarget.z + right.z*dx*speed;
     applyOrbit();
     return;
   }
@@ -436,6 +680,22 @@ window.addEventListener('mousedown',e=>{
   orbitSnap={theta:orb.theta,phi:orb.phi};
 });
 
+// right or middle click = pan
+window.addEventListener('mousedown',e=>{
+  if(e.button===1||e.button===2){
+    e.preventDefault();
+    isPanning=true;
+    panStart={x:e.clientX,y:e.clientY};
+    panSnapTarget={x:orbTarget.x,y:orbTarget.y,z:orbTarget.z};
+  }
+});
+
+window.addEventListener('mouseup',e=>{
+  if(e.button===1||e.button===2) isPanning=false;
+});
+
+window.addEventListener('contextmenu',e=>e.preventDefault());
+
 window.addEventListener('mouseup',()=>{
   if(draggedBlock){
     draggedBlock.vel.set(
@@ -448,7 +708,8 @@ window.addEventListener('mouseup',()=>{
     draggedBlock=null;
     cursorEl.classList.remove('grabbed');
   }
-  isOrbiting=false;});
+  isOrbiting=false;
+});
 
 window.addEventListener('wheel',e=>{
   orb.r=Math.max(20,Math.min(3000,orb.r+e.deltaY*0.8));
@@ -456,7 +717,7 @@ window.addEventListener('wheel',e=>{
 },{passive:true});
 
 // ── MODE SWITCH ───────────────────────────────────────────────────────────────
-const PILE_COLOR = new THREE.Color(0xC8C0B4); // warm mid-gray, visible on dark bg
+const PILE_COLOR = new THREE.Color(0xD4C8B8); // warm light tan
 
 function setMode(mode){
   currentMode=mode;
@@ -464,20 +725,22 @@ function setMode(mode){
   document.getElementById('btn-explode').classList.toggle('active',mode==='explode');
   if(mode==='pile'){
     blocks.forEach(b=>{
-      b.targetPos.copy(b.homePos);
-      b.falling=false;
+      b.targetPos.copy(b.mesh.position); // lock in place wherever they are
+      // do NOT touch homePos or originalPos — reset needs them intact
       b.vel.set(0,0,0);
+      b.sleeping=true;
+      b.sleepCounter=SLEEP_FRAMES;
       b.mesh.material.color.set(PILE_COLOR);
-      b.mesh.material.roughness=0.65;
+      b.mesh.material.roughness=0.92;
     });
-    document.getElementById('hint').innerHTML='drag · orbit<br>scroll · zoom';
+    document.getElementById('hint').innerHTML='left drag · orbit<br>right drag · pan<br>scroll · zoom';
   } else {
     blocks.forEach(b=>{
       b.targetPos.copy(b.mesh.position);
       b.falling=false;
       b.vel.set(0,0,0);
       b.mesh.material.color.copy(b.originalColor);
-      b.mesh.material.roughness=0.5;
+      b.mesh.material.roughness=0.82;
     });
     document.getElementById('hint').innerHTML='click & drag blocks<br>scroll · zoom';
   }
@@ -487,7 +750,7 @@ function setMode(mode){
 function resetAll(){
   blocks.forEach(b=>{
     b.homePos.copy(b.originalPos);
-    b.targetPos.copy(b.originalPos);
+    b.targetPos.copy(b.originalPos);  // go back to original pile position
     b.vel.set(0,0,0);
     b.squishT=0;
     b.dragVelX=0;
@@ -495,8 +758,14 @@ function resetAll(){
     b.sleeping=true;
     b.sleepCounter=SLEEP_FRAMES;
     b.mesh.scale.set(1,1,1);
+    b.mesh.material.color.set(PILE_COLOR);
+    b.mesh.material.roughness=0.92;
   });
-  setMode('pile');
+  // set mode without overwriting targetPos
+  currentMode='pile';
+  document.getElementById('btn-pile').classList.add('active');
+  document.getElementById('btn-explode').classList.remove('active');
+  document.getElementById('hint').innerHTML='left drag · orbit<br>right drag · pan<br>scroll · zoom';
 }
 
 // ── PHYSICS CONSTANTS ─────────────────────────────────────────────────────────
@@ -514,7 +783,9 @@ function initPhysicsBodies(){
     const box=new THREE.Box3().setFromObject(b.mesh);
     const size=new THREE.Vector3(); box.getSize(size);
     b.radius=Math.max(size.x,size.y,size.z)*0.52;
-    b.sleepCounter=SLEEP_FRAMES; // start sleeping
+    b.bbox=box; // store full bbox for POV ground detection
+    b.bboxSize=size.clone();
+    b.sleepCounter=SLEEP_FRAMES;
     b.sleeping=true;
   });
 }
@@ -523,6 +794,15 @@ function wakeBlock(b){
   b.sleeping=false;
   b.sleepCounter=0;
 }
+
+// ── PERSON STATE (declared before animate so updatePersons can reference them) ──
+const PERSON_COLORS = [0xE8635A,0x9B8EC4,0x5BC8C8,0xF2C94C,0xF4A7B9,0xA8D8A8,0xF7956E,0x7B9FB8];
+const PERSON_HEIGHT = 1700;
+const EYE_HEIGHT    = 1550;
+const persons = [];
+let activePOV = null;
+let povYaw = 0, povPitch = 0;
+const keysDown = {};
 
 // ── ANIMATION + PHYSICS ───────────────────────────────────────────────────────
 const clock=new THREE.Clock();
@@ -635,13 +915,16 @@ function animate(){
   // squish animation — always runs regardless of mode
   blocks.forEach(b=>{
     if(b.squishT>0){
-      b.squishT=Math.max(0,b.squishT-dt*3.5);
+      b.squishT=Math.max(0,b.squishT-dt*1.8);
       const s=Math.sin(b.squishT*Math.PI);
       b.mesh.scale.set(1+s*0.10, 1-s*0.08, 1+s*0.10);
     } else {
       b.mesh.scale.set(1,1,1);
     }
   });
+
+  // update persons (physics + POV camera)
+  updatePersons(dt);
 
   renderer.render(scene,camera);
 }
@@ -652,6 +935,590 @@ window.addEventListener('resize',()=>{
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
 });
+
+// ── PERSON SYSTEM ─────────────────────────────────────────────────────────────
+
+// build a simple person mesh: capsule-ish (sphere head + cylinder body) + dot eyes
+function makePersonMesh(color){
+  const group = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({color, roughness:0.7, metalness:0});
+  // person is ~1/40 of massing height
+  const s = (window._massingH || 5000) / 36;
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(s*0.05,s*0.06,s*0.55,12), mat);
+  body.position.y = s*0.28;
+  body.castShadow = true;
+  group.add(body);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(s*0.09,14,10), mat);
+  head.position.y = s*0.68;
+  head.castShadow = true;
+  group.add(head);
+
+  const eyeMat = new THREE.MeshBasicMaterial({color:0x1a1a1a});
+  const eyeGeo = new THREE.SphereGeometry(s*0.013,8,6);
+  [-s*0.035, s*0.035].forEach(x=>{
+    const eye = new THREE.Mesh(eyeGeo, eyeMat);
+    eye.position.set(x, s*0.71, s*0.075);
+    group.add(eye);
+  });
+
+  // store scale for physics reference
+  group.userData.personHeight = s*0.77; // top of head
+  group.userData.eyeHeight    = s*0.65;
+  return group;
+}
+
+// build a simple person mesh with emissive glow
+function makePersonMesh(color){
+  const group = new THREE.Group();
+  const s = (window._massingH || 5000) / 36;
+
+  // emissive material so person glows even when small
+  const mat = new THREE.MeshStandardMaterial({
+    color, roughness:0.6, metalness:0,
+    emissive: new THREE.Color(color),
+    emissiveIntensity: 0.5,
+  });
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(s*0.05,s*0.06,s*0.55,12), mat);
+  body.position.y = s*0.28; body.castShadow=true; group.add(body);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(s*0.09,14,10), mat);
+  head.position.y = s*0.68; head.castShadow=true; group.add(head);
+
+  const eyeMat = new THREE.MeshBasicMaterial({color:0x1a1a1a});
+  const eyeGeo = new THREE.SphereGeometry(s*0.014,8,6);
+  [-s*0.035, s*0.035].forEach(x=>{
+    const eye = new THREE.Mesh(eyeGeo, eyeMat);
+    eye.position.set(x, s*0.71, s*0.08);
+    group.add(eye);
+  });
+
+  group.userData.personHeight = s*0.77;
+  group.userData.eyeHeight    = s*0.65;
+  group.userData.radius       = s*0.12; // collision sphere
+  return group;
+}
+
+// drop line: vertical line from person down to ground, shows while falling
+function makeDropLine(color){
+  const mat = new THREE.LineBasicMaterial({color, opacity:0.5, transparent:true});
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0,0,0),
+    new THREE.Vector3(0,-9999,0),
+  ]);
+  return new THREE.Line(geo, mat);
+}
+
+function spawnPerson(){
+  if(!window._massingH){ alert('Still loading, please wait!'); return; }
+  const idx = persons.length % PERSON_COLORS.length;
+  const color = PERSON_COLORS[idx];
+  const colorHex = '#'+color.toString(16).padStart(6,'0');
+
+  const mesh = makePersonMesh(color);
+  const dropLine = makeDropLine(color);
+  const spawnH = window._massingH * 2.5;
+  const dx = window._massingDX || window._massingH;
+  const dz = window._massingDZ || window._massingH;
+  const spawnX = (Math.random()-0.5) * dx * 1.1;
+  const spawnZ = (Math.random()-0.5) * dz * 1.1;
+  mesh.position.set(spawnX, spawnH, spawnZ);
+  dropLine.position.set(spawnX, spawnH, spawnZ);
+  scene.add(mesh);
+  scene.add(dropLine);
+
+  const eyeH = mesh.userData.eyeHeight;
+  const pRadius = mesh.userData.radius;
+  const person = {
+    mesh, dropLine,
+    color, colorHex,
+    idx: persons.length+1,
+    vel: new THREE.Vector3(),
+    falling: true,
+    grounded: false,
+    groundY: 0,
+    eyeHeight: eyeH,
+    radius: pRadius,
+  };
+  persons.push(person);
+
+  const card = document.createElement('div');
+  card.className = 'person-card';
+  card.id = `pcard-${person.idx}`;
+  card.innerHTML = `
+    <div class="person-dot" style="background:${colorHex}"></div>
+    <div class="person-label">Person ${person.idx}</div>
+    <div class="person-pov">POV</div>
+  `;
+  card.onclick = ()=> enterPOV(person);
+  document.getElementById('person-list').appendChild(card);
+}
+
+// ── POV mode ──────────────────────────────────────────────────────────────────
+function enterPOV(person){
+  activePOV = person;
+  povYaw   = 0;
+  povPitch = 0;
+
+  // hide person mesh while in their POV
+  person.mesh.visible = false;
+
+  // update UI
+  document.querySelectorAll('.person-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById(`pcard-${person.idx}`).classList.add('active');
+  document.getElementById('pov-bar').classList.add('visible');
+  document.getElementById('pov-label').textContent = `Person ${person.idx} POV`;
+  document.getElementById('pov-crosshair').classList.add('visible');
+  document.getElementById('hint').innerHTML='WASD · move<br>mouse · look<br>space · jump';
+
+  // lock pointer for mouse-look
+  document.body.requestPointerLock();
+
+  // switch camera to POV settings
+  camera.fov = 75;
+  camera.updateProjectionMatrix();
+}
+
+function exitPOV(){
+  if(!activePOV) return;
+  activePOV.mesh.visible = true;
+  document.querySelectorAll('.person-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('pov-bar').classList.remove('visible');
+  document.getElementById('pov-crosshair').classList.remove('visible');
+  document.getElementById('hint').innerHTML='left drag · orbit<br>right drag · pan<br>scroll · zoom';
+  activePOV = null;
+
+  // restore camera
+  camera.fov = 42;
+  camera.updateProjectionMatrix();
+  document.exitPointerLock();
+  applyOrbit();
+}
+
+// pointer lock mouse-look
+document.addEventListener('mousemove', e=>{
+  if(!activePOV) return;
+  if(document.pointerLockElement !== document.body) return;
+  povYaw   -= e.movementX * 0.002;
+  povPitch  = Math.max(-Math.PI*0.45, Math.min(Math.PI*0.45, povPitch - e.movementY*0.002));
+});
+
+// WASD keys
+window.addEventListener('keydown', e=>{ 
+  keysDown[e.code]=true;
+  if(e.code==='Escape' && activePOV) exitPOV();
+  // jump on Space press (not hold)
+  if(e.code==='Space' && activePOV && activePOV.grounded){
+    activePOV.vel.y=(window._massingH||5000)*0.12;
+    activePOV.grounded=false;
+  }
+});
+window.addEventListener('keyup',   e=>{ keysDown[e.code]=false; });
+
+// ── PERSON PHYSICS + POV CAMERA UPDATE (runs inside animate) ──────────────────
+function updatePersons(dt){
+  const PGRAVITY = -2800;
+  const PBOUNCE  = 0.2;
+
+  persons.forEach(p=>{
+    if(!p.falling && !activePOV) return;
+
+    if(p.falling){
+      p.vel.y += PGRAVITY*dt;
+      p.mesh.position.y += p.vel.y*dt;
+
+      // sync drop line position
+      if(p.dropLine){
+        p.dropLine.position.x = p.mesh.position.x;
+        p.dropLine.position.z = p.mesh.position.z;
+        p.dropLine.position.y = p.mesh.position.y;
+      }
+
+      // land on blocks — check sphere overlap
+      let landed = false;
+      if(p.vel.y<0){
+        blocks.forEach(b=>{
+          if(landed) return;
+          if(!b.bboxSize) return;
+          const bx=b.mesh.position.x, bz=b.mesh.position.z;
+          const halfX=b.bboxSize.x*0.5+p.radius, halfZ=b.bboxSize.z*0.5+p.radius;
+          const px=p.mesh.position.x, pz=p.mesh.position.z;
+          if(px > bx-halfX && px < bx+halfX && pz > bz-halfZ && pz < bz+halfZ){
+            const topY=b.mesh.position.y+b.bboxSize.y*0.5;
+            if(p.mesh.position.y < topY+p.radius && p.mesh.position.y > b.mesh.position.y){
+              p.mesh.position.y = topY;
+              p.vel.y *= -PBOUNCE;
+              b.squishT = 1.0;
+              if(b.sleeping) wakeBlock(b);
+              if(Math.abs(p.vel.y)<10){
+                p.vel.y=0; p.falling=false; p.grounded=true; p.groundY=topY;
+                landed=true;
+              }
+            }
+          }
+        });
+      }
+
+      // floor fallback
+      if(!landed && p.mesh.position.y <= 0){
+        p.mesh.position.y = 0;
+        p.vel.y *= -PBOUNCE;
+        if(Math.abs(p.vel.y)<10){ p.vel.y=0; p.falling=false; p.grounded=true; p.groundY=0; }
+      }
+
+      // hide drop line once landed
+      if(!p.falling && p.dropLine){
+        scene.remove(p.dropLine);
+        p.dropLine = null;
+      }
+    }
+
+    // WASD movement in POV mode
+    if(activePOV===p){
+      const speed = (window._massingH||5000)*0.015; // scale speed to massing size
+      if(keysDown['KeyW']||keysDown['ArrowUp']){
+        p.mesh.position.x += Math.sin(povYaw)*speed;
+        p.mesh.position.z += Math.cos(povYaw)*speed;
+      }
+      if(keysDown['KeyS']||keysDown['ArrowDown']){
+        p.mesh.position.x -= Math.sin(povYaw)*speed;
+        p.mesh.position.z -= Math.cos(povYaw)*speed;
+      }
+      if(keysDown['KeyA']||keysDown['ArrowLeft']){
+        p.mesh.position.x += Math.cos(povYaw)*speed;
+        p.mesh.position.z -= Math.sin(povYaw)*speed;
+      }
+      if(keysDown['KeyD']||keysDown['ArrowRight']){
+        p.mesh.position.x -= Math.cos(povYaw)*speed;
+        p.mesh.position.z += Math.sin(povYaw)*speed;
+      }
+
+      // ── POV physics ───────────────────────────────────────────────────────
+      // find highest surface Y under person using actual block bounding boxes
+      let supportY = 0; // floor default
+
+      blocks.forEach(b=>{
+        // update bbox world position (block may have moved)
+        const bx=b.mesh.position.x, bz=b.mesh.position.z;
+        const halfX=b.bboxSize.x*0.5, halfZ=b.bboxSize.z*0.5;
+        const topY=b.mesh.position.y+b.bboxSize.y*0.5;
+        // check if person is within block's XZ footprint
+        const px=p.mesh.position.x, pz=p.mesh.position.z;
+        if(px > bx-halfX && px < bx+halfX && pz > bz-halfZ && pz < bz+halfZ){
+          supportY=Math.max(supportY, topY);
+        }
+      });
+
+      // apply gravity
+      p.vel.y += PGRAVITY*dt;
+      p.mesh.position.y += p.vel.y*dt;
+
+      // land on support surface
+      if(p.mesh.position.y <= supportY){
+        p.mesh.position.y = supportY;
+        if(p.vel.y < 0) p.vel.y = 0;
+        p.grounded = true;
+      } else {
+        p.grounded = false;
+      }
+
+      // jump handled in keydown event
+
+      // position camera at eye height
+      camera.position.set(
+        p.mesh.position.x,
+        p.mesh.position.y + p.eyeHeight,
+        p.mesh.position.z
+      );
+      const lookDir = new THREE.Vector3(
+        Math.sin(povYaw)*Math.cos(povPitch),
+        Math.sin(povPitch),
+        Math.cos(povYaw)*Math.cos(povPitch)
+      );
+      camera.lookAt(camera.position.clone().add(lookDir));
+    }
+  });
+}
+
+// ── PROGRAM DATA ──────────────────────────────────────────────────────────────
+const PROG_COLORS = {
+  watch:  0xC17A72, play:   0xD4B86A, share:  0x7A9EBE,
+  learn:  0x8E84B0, gather: 0xC9959E, hang:   0x6AAFAF, boh: 0x8FAF8F,
+};
+const BLOCK_PROGRAM = {
+  26:'hang',18:'hang',29:'hang',20:'hang',25:'hang',
+  8:'play',19:'play',34:'play',35:'play',36:'play',33:'play',31:'play',15:'play',1:'play',37:'play',
+  2:'boh',9:'boh',24:'boh',
+  3:'share',28:'share',7:'share',5:'share',
+  32:'watch',30:'watch',16:'watch',27:'watch',14:'watch',11:'watch',22:'watch',
+  4:'learn',12:'learn',13:'learn',
+  6:'gather',21:'gather',23:'gather',10:'gather',17:'gather',
+};
+const BLOCK_CIRCUIT = {
+  11:'museum',3:'museum',32:'museum',30:'museum',12:'museum',21:'museum',37:'museum',4:'museum',14:'museum',
+  18:'wander',5:'wander',27:'wander',28:'wander',22:'wander',
+  8:'pavilion',6:'pavilion',7:'pavilion',19:'pavilion',31:'pavilion',33:'pavilion',
+  36:'pavilion',35:'pavilion',34:'pavilion',13:'pavilion',9:'pavilion',29:'pavilion',
+  26:'room',2:'room',15:'room',20:'room',24:'room',10:'room',
+  16:'room',17:'room',23:'room',1:'room',25:'room',
+};
+const CIRCUIT_COLORS = {
+  museum:0xC17A72, wander:0xC4A86A, pavilion:0x8E84B0, room:0x6AAFAF,
+};
+const BLOCK_CARD = {
+  32:{emoji:'🎥',name:'Main Screening Theater',desc:'Full-scale immersive projection room for The Annual\'s flagship media works.'},
+  30:{emoji:'🖼',name:'Year-in-Review Gallery',desc:'A curated walk-through of NYC\'s year in data, rendered as large-scale visualizations.'},
+  16:{emoji:'📊',name:'Data Visualization Gallery',desc:'Interactive displays translating urban datasets into navigable visual environments.'},
+  27:{emoji:'🎞',name:'Immersive Screening Room',desc:'Intimate projection space for artist films, documentary works, and archival footage.'},
+  14:{emoji:'🏛',name:'Main Exhibition Hall',desc:'Flexible exhibition hall hosting the primary Annual installation each year.'},
+  11:{emoji:'📡',name:'Media Environment Room',desc:'An experimental space surrounded by live data feeds from across the city.'},
+  22:{emoji:'🌆',name:'Temporary Exhibition',desc:'Rotating gallery for guest curators and partner institutions.'},
+  8: {emoji:'🎪',name:'Inflatable Pavilion',desc:'A fully inflatable structure housing the year\'s featured interactive installation — replaced annually.'},
+  19:{emoji:'🧗',name:'Climbing Structure',desc:'Sculptural climbing frame connecting ground level to elevated play surfaces.'},
+  34:{emoji:'🌀',name:'Annual Installation',desc:'This year\'s signature ephemeral piece — changes every January with The Annual\'s content refresh.'},
+  35:{emoji:'🏀',name:'Bounce Zone',desc:'Elasticized surface zones for physical play, integrated into the landscape.'},
+  36:{emoji:'🎠',name:'Tactile Installation',desc:'A sensory play structure emphasizing material texture and physical discovery.'},
+  33:{emoji:'🎡',name:'Outdoor Play Structure',desc:'Multi-level outdoor play equipment embedded in the urban playground landscape.'},
+  31:{emoji:'🎮',name:'Digital Play Room',desc:'An enclosed digital gaming and interactive media space within the museum circuit.'},
+  15:{emoji:'🪁',name:'Play Room',desc:'A small indoor play space, sheltered from weather, for younger visitors.'},
+  1: {emoji:'🏃',name:'Ground Play Zone',desc:'Open-ended ground-level play area — loose programming, maximum flexibility.'},
+  37:{emoji:'🎈',name:'Inflatable Entry Feature',desc:'A seasonal inflatable marking the main public entry to the playground.'},
+  3: {emoji:'🎙',name:'Recording Studio',desc:'Soundproofed studio for visitor-generated audio content — podcasts and sonic portraits of the city.'},
+  28:{emoji:'📹',name:'Live Stream Booth',desc:'A compact broadcast-ready booth overlooking the playground — visitors go live as part of The Annual.'},
+  7: {emoji:'📱',name:'UGC Creation Station',desc:'Open-format content creation station with green screen, lighting rigs, and upload terminals.'},
+  5: {emoji:'🤳',name:'Social Media Corner',desc:'A designed backdrop space with curated views of the Hudson — engineered for shareability.'},
+  4: {emoji:'🔬',name:'Visualization Lab Bridge',desc:'A glazed connecting bridge doubling as a data visualization laboratory — threshold between Watch and Learn.'},
+  12:{emoji:'📚',name:'Annual Archive',desc:'Physical and digital archive of all past Annual editions — browsable, searchable, tangible.'},
+  13:{emoji:'🧑‍💻',name:'Data Workshop',desc:'Workshop space for public programs in data literacy, visualization, and urban storytelling.'},
+  6: {emoji:'🎭',name:'Outdoor Stage',desc:'An open-air performance stage for public events year-round.'},
+  21:{emoji:'🏟',name:'Event Hall',desc:'A flexible-use hall for Annual launch events, talks, and screenings.'},
+  23:{emoji:'🌳',name:'Gathering Plaza',desc:'A shaded public plaza at ground level — the civic heart of the site, open without ticket.'},
+  10:{emoji:'🤝',name:'Community Forum',desc:'An indoor-outdoor community meeting space supporting workshops and neighborhood programming.'},
+  17:{emoji:'🎤',name:'Talk Space',desc:'A stepped seating area for informal lectures and conversations.'},
+  26:{emoji:'☕',name:'Café',desc:'A planted café terrace with views across the playground — the social center of the ground level.'},
+  18:{emoji:'🌉',name:'Bridge Lounge',desc:'A bridge-level rest and observation space connecting upper volumes.'},
+  29:{emoji:'🛋',name:'Rest Zone',desc:'Shaded seating alcove embedded in the landscape for quiet pause.'},
+  20:{emoji:'🌿',name:'Planting Beds',desc:'Raised planting beds integrating landscape and architecture — seasonal plantings change with The Annual.'},
+  25:{emoji:'🪑',name:'Urban Furniture Cluster',desc:'A cluster of moveable urban furniture defining a flexible outdoor hang zone.'},
+  2: {emoji:'📦',name:'Storage',desc:'Back-of-house storage for exhibition materials, seasonal installations, and annual changeover.'},
+  9: {emoji:'⚙️',name:'MEP / Service Core',desc:'Mechanical, electrical, and plumbing service core — the invisible infrastructure of The Annual.'},
+  24:{emoji:'🚚',name:'Loading Dock',desc:'Service access and loading dock for installation changeovers and daily operations.'},
+};
+
+let displayMode='default';
+let activeFilter='all';
+let programExploded=false;
+let circuitExploded=false;
+let isDragging=false;
+window.addEventListener('mousedown',()=>{isDragging=false;});
+window.addEventListener('mousemove',()=>{isDragging=true;});
+
+function applyDisplayColors(){
+  blocks.forEach(b=>{
+    const idx=b.mesh.userData.idx;
+    if(displayMode==='program'){
+      const prog=BLOCK_PROGRAM[idx]||'boh';
+      if(activeFilter==='all'||activeFilter===prog){
+        b.mesh.material.color.set(PROG_COLORS[prog]);
+        b.mesh.material.opacity=1; b.mesh.material.transparent=false;
+      } else {
+        b.mesh.material.color.set(0xffffff);
+        b.mesh.material.opacity=0.35; b.mesh.material.transparent=true;
+      }
+    } else if(displayMode==='circuit'){
+      const circ=BLOCK_CIRCUIT[idx]||'room';
+      if(activeFilter==='all'||activeFilter===circ){
+        b.mesh.material.color.set(CIRCUIT_COLORS[circ]);
+        b.mesh.material.opacity=1; b.mesh.material.transparent=false;
+      } else {
+        b.mesh.material.color.set(0xffffff);
+        b.mesh.material.opacity=0.35; b.mesh.material.transparent=true;
+      }
+    }
+    b.mesh.material.needsUpdate=true;
+  });
+}
+
+function filterProgram(filter){
+  activeFilter=filter;
+  document.querySelectorAll('.prog-btn').forEach(b=>b.classList.remove('active'));
+  const el=document.getElementById('prog-'+filter);
+  if(el) el.classList.add('active');
+  applyDisplayColors();
+  if(programExploded) doProgramExplode();
+}
+
+function filterCircuit(filter){
+  activeFilter=filter;
+  document.querySelectorAll('.circ-btn').forEach(b=>b.classList.remove('active'));
+  const el=document.getElementById('circ-'+filter);
+  if(el) el.classList.add('active');
+  applyDisplayColors();
+  if(circuitExploded) doCircuitExplode();
+}
+
+function doProgramExplode(){
+  const box=new THREE.Box3();
+  blocks.forEach(b=>box.expandByPoint(b.originalPos));
+  const center=new THREE.Vector3(); box.getCenter(center);
+  const sz=new THREE.Vector3(); box.getSize(sz);
+  const spread=Math.max(sz.x,sz.z)*0.5;
+
+  // assign a fixed direction per program group
+  const progOrder=['watch','learn','share','gather','hang','play','boh'];
+  const progDir={};
+  progOrder.forEach((p,i)=>{
+    const angle=(i/progOrder.length)*Math.PI*2;
+    progDir[p]={x:Math.cos(angle),z:Math.sin(angle)};
+  });
+
+  blocks.forEach(b=>{
+    const idx=b.mesh.userData.idx;
+    const prog=BLOCK_PROGRAM[idx]||'boh';
+    if(activeFilter!=='all' && activeFilter!==prog){
+      // non-selected: push further out
+      const dir=progDir[prog]||{x:1,z:0};
+      b.targetPos.set(
+        b.originalPos.x+dir.x*spread*1.5,
+        b.originalPos.y,
+        b.originalPos.z+dir.z*spread*1.5
+      );
+    } else {
+      // selected (or all): move to group position, keep relative offsets
+      const dir=progDir[prog]||{x:1,z:0};
+      const groupOffset=activeFilter==='all'?spread*0.6:0;
+      b.targetPos.set(
+        b.originalPos.x+dir.x*groupOffset,
+        b.originalPos.y,
+        b.originalPos.z+dir.z*groupOffset
+      );
+    }
+  });
+}
+
+function toggleProgramExplode(){
+  programExploded=!programExploded;
+  const btn=document.getElementById('prog-explode-btn');
+  btn.style.color=programExploded?'#1a1a1a':'#888';
+  btn.style.fontWeight=programExploded?'600':'400';
+  if(programExploded) doProgramExplode();
+  else blocks.forEach(b=>b.targetPos.copy(b.originalPos));
+}
+
+function doCircuitExplode(){
+  const H=window._massingH||200;
+  const LAYER={museum:H*0.9,wander:H*0.3,pavilion:-H*0.1,room:-H*0.5};
+  blocks.forEach(b=>{
+    const idx=b.mesh.userData.idx;
+    const circ=BLOCK_CIRCUIT[idx]||'room';
+    b.targetPos.set(b.originalPos.x,b.originalPos.y+(LAYER[circ]||0),b.originalPos.z);
+  });
+}
+
+function toggleCircuitExplode(){
+  circuitExploded=!circuitExploded;
+  const btn=document.getElementById('circ-explode-btn');
+  btn.style.color=circuitExploded?'#1a1a1a':'#888';
+  btn.style.fontWeight=circuitExploded?'600':'400';
+  if(circuitExploded) doCircuitExplode();
+  else blocks.forEach(b=>b.targetPos.copy(b.originalPos));
+}
+
+function showCard(blockIdx,screenX,screenY,clickedBlock){
+  const data=BLOCK_CARD[blockIdx]; if(!data) return;
+  const prog=BLOCK_PROGRAM[blockIdx]||'boh';
+  const circ=BLOCK_CIRCUIT[blockIdx]||'room';
+  const progLabel={watch:'Watch',play:'Play',share:'Share',
+    learn:'Learn',gather:'Gather',hang:'Hang',boh:'BOH'};
+  const circLabel={museum:'Museum Circuit',wander:'Wandering',pavilion:'Pavilion',room:'Room'};
+  const progColor={watch:'#9E5A53',play:'#9E8040',share:'#4a7a9E',
+    learn:'#6a609E',gather:'#9E6070',hang:'#3a8a8a',boh:'#5a8a5a'};
+  document.getElementById('card-emoji').textContent=data.emoji;
+  document.getElementById('card-program').textContent=progLabel[prog]||prog;
+  document.getElementById('card-program').style.color=progColor[prog]||'#aaa';
+  document.getElementById('card-name').textContent=data.name;
+  document.getElementById('card-type').textContent=circLabel[circ]||circ;
+  document.getElementById('card-desc').textContent=data.desc;
+  let cx=screenX+16,cy=screenY-80;
+  if(cx+240>innerWidth) cx=screenX-240;
+  if(cy<10) cy=10;
+  const card=document.getElementById('info-card');
+  card.style.left=cx+'px'; card.style.top=cy+'px';
+  // reset then bounce
+  card.classList.remove('visible');
+  card.style.transition='none';
+  card.style.transform='scale(0.75) translateY(8px)';
+  card.style.opacity='0';
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      card.style.transition='opacity .2s ease, transform .35s cubic-bezier(0.34,1.56,0.64,1)';
+      card.style.transform='scale(1) translateY(0)';
+      card.style.opacity='1';
+      card.classList.add('visible');
+    });
+  });
+
+  // squish the clicked block
+  if(clickedBlock) clickedBlock.squishT=0.8;
+}
+
+function closeCard(){
+  const card=document.getElementById('info-card');
+  card.style.transition='opacity .2s ease, transform .2s ease';
+  card.style.opacity='0';
+  card.style.transform='scale(0.75) translateY(8px)';
+  card.classList.remove('visible');
+  setTimeout(()=>{ card.style.pointerEvents='none'; },200);
+}
+
+window.addEventListener('click',e=>{
+  if(activePOV||isDragging) return;
+  if(currentMode!=='program'&&currentMode!=='circuit') return;
+  mouse2d.set((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+  raycaster.setFromCamera(mouse2d,camera);
+  const hits=raycaster.intersectObjects(blocks.map(b=>b.mesh));
+  if(hits.length){
+    const hit=blocks.find(b=>b.mesh===hits[0].object);
+    if(hit) showCard(hit.mesh.userData.idx,e.clientX,e.clientY,hit);
+  } else { closeCard(); }
+});
+
+// override setMode to handle program/circuit
+const _origSetMode=setMode;
+function setMode(mode){
+  if(mode==='program'||mode==='circuit'){
+    currentMode=mode;
+    ['pile','explode','program','circuit','reset'].forEach(m=>{
+      const b=document.getElementById('btn-'+m);
+      if(b) b.classList.toggle('active',m===mode);
+    });
+    blocks.forEach(b=>{
+      b.targetPos.copy(b.originalPos); b.homePos.copy(b.originalPos);
+      b.vel.set(0,0,0); b.sleeping=true; b.sleepCounter=SLEEP_FRAMES;
+    });
+    displayMode=mode; activeFilter='all';
+    programExploded=false; circuitExploded=false;
+    document.getElementById('program-panel').style.display=mode==='program'?'flex':'none';
+    document.getElementById('circuit-panel').style.display=mode==='circuit'?'flex':'none';
+    if(mode==='program'){
+      document.querySelectorAll('.prog-btn').forEach(b=>b.classList.remove('active'));
+      document.getElementById('prog-all').classList.add('active');
+    } else {
+      document.querySelectorAll('.circ-btn').forEach(b=>b.classList.remove('active'));
+      document.getElementById('circ-all').classList.add('active');
+    }
+    applyDisplayColors(); closeCard(); return;
+  }
+  // restore
+  displayMode='default';
+  document.getElementById('program-panel').style.display='none';
+  document.getElementById('circuit-panel').style.display='none';
+  closeCard();
+  blocks.forEach(b=>{ b.mesh.material.color.copy(b.originalColor); b.mesh.material.opacity=1; b.mesh.material.transparent=false; b.mesh.material.needsUpdate=true; });
+  _origSetMode(mode);
+}
 </script>
 </body>
 </html>
