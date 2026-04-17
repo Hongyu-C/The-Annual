@@ -721,28 +721,59 @@ const PILE_COLOR = new THREE.Color(0xD4C8B8); // warm light tan
 
 function setMode(mode){
   currentMode=mode;
-  document.getElementById('btn-pile').classList.toggle('active',mode==='pile');
-  document.getElementById('btn-explode').classList.toggle('active',mode==='explode');
+  ['pile','explode','program','circuit'].forEach(m=>{
+    const b=document.getElementById('btn-'+m);
+    if(b) b.classList.toggle('active',m===mode);
+  });
+  document.getElementById('program-panel').style.display='none';
+  document.getElementById('circuit-panel').style.display='none';
+  closeCard();
+
   if(mode==='pile'){
     blocks.forEach(b=>{
-      b.targetPos.copy(b.mesh.position); // lock in place wherever they are
-      // do NOT touch homePos or originalPos — reset needs them intact
-      b.vel.set(0,0,0);
-      b.sleeping=true;
-      b.sleepCounter=SLEEP_FRAMES;
+      b.targetPos.copy(b.mesh.position);
+      b.vel.set(0,0,0); b.sleeping=true; b.sleepCounter=SLEEP_FRAMES;
       b.mesh.material.color.set(PILE_COLOR);
-      b.mesh.material.roughness=0.92;
+      b.mesh.material.opacity=1; b.mesh.material.transparent=false;
+      b.mesh.material.roughness=0.92; b.mesh.material.needsUpdate=true;
     });
+    displayMode='default';
     document.getElementById('hint').innerHTML='left drag · orbit<br>right drag · pan<br>scroll · zoom';
-  } else {
+
+  } else if(mode==='explode'){
     blocks.forEach(b=>{
       b.targetPos.copy(b.mesh.position);
-      b.falling=false;
-      b.vel.set(0,0,0);
+      b.vel.set(0,0,0); b.sleeping=true; b.sleepCounter=SLEEP_FRAMES;
       b.mesh.material.color.copy(b.originalColor);
-      b.mesh.material.roughness=0.82;
+      b.mesh.material.opacity=1; b.mesh.material.transparent=false;
+      b.mesh.material.roughness=0.82; b.mesh.material.needsUpdate=true;
     });
+    displayMode='default';
     document.getElementById('hint').innerHTML='click & drag blocks<br>scroll · zoom';
+
+  } else if(mode==='program'){
+    blocks.forEach(b=>{
+      b.targetPos.copy(b.originalPos); b.homePos.copy(b.originalPos);
+      b.vel.set(0,0,0); b.sleeping=true; b.sleepCounter=SLEEP_FRAMES;
+    });
+    displayMode='program'; activeFilter='all'; programExploded=false;
+    document.getElementById('program-panel').style.display='flex';
+    document.querySelectorAll('.prog-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('prog-all').classList.add('active');
+    applyDisplayColors();
+    document.getElementById('hint').innerHTML='click block · info<br>left drag · orbit';
+
+  } else if(mode==='circuit'){
+    blocks.forEach(b=>{
+      b.targetPos.copy(b.originalPos); b.homePos.copy(b.originalPos);
+      b.vel.set(0,0,0); b.sleeping=true; b.sleepCounter=SLEEP_FRAMES;
+    });
+    displayMode='circuit'; activeFilter='all'; circuitExploded=false;
+    document.getElementById('circuit-panel').style.display='flex';
+    document.querySelectorAll('.circ-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('circ-all').classList.add('active');
+    applyDisplayColors();
+    document.getElementById('hint').innerHTML='click block · info<br>left drag · orbit';
   }
 }
 
@@ -1486,39 +1517,7 @@ window.addEventListener('click',e=>{
 });
 
 // override setMode to handle program/circuit
-const _origSetMode=setMode;
-function setMode(mode){
-  if(mode==='program'||mode==='circuit'){
-    currentMode=mode;
-    ['pile','explode','program','circuit','reset'].forEach(m=>{
-      const b=document.getElementById('btn-'+m);
-      if(b) b.classList.toggle('active',m===mode);
-    });
-    blocks.forEach(b=>{
-      b.targetPos.copy(b.originalPos); b.homePos.copy(b.originalPos);
-      b.vel.set(0,0,0); b.sleeping=true; b.sleepCounter=SLEEP_FRAMES;
-    });
-    displayMode=mode; activeFilter='all';
-    programExploded=false; circuitExploded=false;
-    document.getElementById('program-panel').style.display=mode==='program'?'flex':'none';
-    document.getElementById('circuit-panel').style.display=mode==='circuit'?'flex':'none';
-    if(mode==='program'){
-      document.querySelectorAll('.prog-btn').forEach(b=>b.classList.remove('active'));
-      document.getElementById('prog-all').classList.add('active');
-    } else {
-      document.querySelectorAll('.circ-btn').forEach(b=>b.classList.remove('active'));
-      document.getElementById('circ-all').classList.add('active');
-    }
-    applyDisplayColors(); closeCard(); return;
-  }
-  // restore
-  displayMode='default';
-  document.getElementById('program-panel').style.display='none';
-  document.getElementById('circuit-panel').style.display='none';
-  closeCard();
-  blocks.forEach(b=>{ b.mesh.material.color.copy(b.originalColor); b.mesh.material.opacity=1; b.mesh.material.transparent=false; b.mesh.material.needsUpdate=true; });
-  _origSetMode(mode);
-}
+
 </script>
 </body>
 </html>
