@@ -21,6 +21,10 @@
   #count{position:fixed;top:32px;right:40px;font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:.15em;color:#bbb;text-transform:uppercase;z-index:100;pointer-events:none;}
   #count span{color:#1a1a1a;font-weight:500;}
   #loading{position:fixed;inset:0;background:#f2ede8;display:flex;align-items:center;justify-content:center;z-index:200;font-size:12px;letter-spacing:.2em;color:#aaa;text-transform:uppercase;transition:opacity .5s;}
+  #concept-left{position:fixed;left:36px;top:50%;transform:translateY(-50%);z-index:100;width:200px;pointer-events:none;}
+  #concept-left .cl-label{font-family:'DM Sans',sans-serif;font-size:9px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:#bbb;margin-bottom:10px;display:block;}
+  #concept-left .cl-body{font-family:'DM Sans',sans-serif;font-size:11px;color:#999;line-height:1.75;}
+  #concept-left .cl-body em{font-style:normal;color:#555;font-weight:500;}
 
   /* grain texture overlay */
   body::after {
@@ -43,6 +47,14 @@
 </head>
 <body>
 <div id="loading">Loading…</div>
+<div id="concept-left">
+  <span class="cl-label">The Annual</span>
+  <div class="cl-body">
+    The building sits on a parking lot at the southern edge of Hudson Yards. The massing follows a <em>pile logic</em> — filleted volumes of varying size stack on one another following gravitational constraints, producing a silhouette that steps down toward the open river.<br><br>
+    You can read what a space does from the outside by its skin: <em>Bare</em> shell for Watch spaces, <em>Puffer Jacket</em> ETFE cushions for Gather and Hang, <em>Fully Inflatable</em> membrane for Play — replaced annually as content changes.
+  </div>
+</div>
+
 <div id="nav" style="position:fixed;top:0;left:0;right:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:24px 40px;pointer-events:none;">
   <div style="pointer-events:auto;">
     <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:400;letter-spacing:.25em;text-transform:uppercase;color:#aaa;">The Annual</div>
