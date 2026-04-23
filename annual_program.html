@@ -37,6 +37,23 @@ canvas { position:fixed; inset:0; display:block; cursor:none; }
   font-size:11px; color:#bbb; letter-spacing:.1em; text-transform:uppercase;
 }
 
+#concept-side {
+  position:fixed; right:36px; top:50%; transform:translateY(-50%);
+  z-index:200; width:210px; pointer-events:none;
+}
+#concept-side .cs-label {
+  font-family:'Syne',sans-serif; font-size:9px; font-weight:700;
+  letter-spacing:.2em; text-transform:uppercase; color:#bbb;
+  margin-bottom:10px; display:block;
+}
+#concept-side .cs-body {
+  font-family:'DM Sans',sans-serif; font-size:11px; color:#999;
+  line-height:1.75;
+}
+#concept-side .cs-body em {
+  font-style:normal; color:#444; font-weight:500;
+}
+
 /* CARD */
 #overlay {
   position:fixed; inset:0; z-index:300;
@@ -200,6 +217,15 @@ canvas { position:fixed; inset:0; display:block; cursor:none; }
 </div>
 
 <div id="hint" style="bottom:90px;">move mouse to flow · click shape to explore</div>
+
+<div id="concept-side">
+  <span class="cs-label">The Annual</span>
+  <div class="cs-body">
+    Every app you use already writes your history. Strung together, they compose a portrait of a city's year.<br><br>
+    <em>The Annual</em> collects New York City's public data year-round and transforms it into walkable spatial experiences — a city-scale Year in Review. Each volume is dedicated to a mode of engaging with data: <em>Watch, Play, Share, Learn, Gather, Hang.</em><br><br>
+    The museum is not a permanent collection but a living document that overwrites itself annually, with previous years archived underneath like layers of a palimpsest.
+  </div>
+</div>
 
 <div id="overlay">
   <div id="card">
