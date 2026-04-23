@@ -123,6 +123,25 @@ canvas { display:block; position:fixed; top:0; left:0; }
 #pov-crosshair::before { width:2px; height:14px; left:9px; top:3px; }
 #pov-crosshair::after  { width:14px; height:2px; left:3px; top:9px; }
 
+/* ── CONCEPT TEXT PANEL ── */
+#concept-text {
+  position:fixed; left:24px; top:50%; transform:translateY(-50%);
+  z-index:200; width:200px;
+  pointer-events:none;
+}
+#concept-text .ct-label {
+  font-family:'DM Sans',sans-serif; font-size:9px; font-weight:500;
+  letter-spacing:.18em; text-transform:uppercase; color:#bbb;
+  margin-bottom:10px; display:block;
+}
+#concept-text .ct-body {
+  font-family:'DM Sans',sans-serif; font-size:11px; color:#888;
+  line-height:1.7; 
+}
+#concept-text .ct-body em {
+  font-style:normal; color:#555; font-weight:500;
+}
+
 /* ── PROGRAM PANEL ── */
 #program-panel {
   position:fixed; left:24px; top:50%; transform:translateY(-50%);
@@ -222,6 +241,15 @@ canvas { display:block; position:fixed; top:0; left:0; }
 </div>
 <div id="hint">left drag · orbit<br>right drag · pan<br>scroll · zoom</div>
 <div id="block-tag"></div>
+
+<!-- Concept text — shown in pile/explode mode -->
+<div id="concept-text">
+  <span class="ct-label">The Annual</span>
+  <div class="ct-body">
+    The massing follows a <em>pile logic</em> — filleted volumes stack on one another following gravitational constraints rather than formal composition, producing a silhouette that steps down from the dense city side toward the open river.<br><br>
+    Two systems run in parallel: the <em>Museum Circuit</em>, a ticketed path through upper volumes; and the <em>Urban Playground</em>, free and ground-level, open to the street without a prescribed route.
+  </div>
+</div>
 
 <!-- Program panel -->
 <div id="program-panel">
@@ -727,6 +755,7 @@ function setMode(mode){
   });
   document.getElementById('program-panel').style.display='none';
   document.getElementById('circuit-panel').style.display='none';
+  document.getElementById('concept-text').style.display='block';
   closeCard();
 
   if(mode==='pile'){
@@ -758,6 +787,7 @@ function setMode(mode){
     });
     displayMode='program'; activeFilter='all'; programExploded=false;
     document.getElementById('program-panel').style.display='flex';
+    document.getElementById('concept-text').style.display='none';
     document.querySelectorAll('.prog-btn').forEach(b=>b.classList.remove('active'));
     document.getElementById('prog-all').classList.add('active');
     applyDisplayColors();
@@ -770,6 +800,7 @@ function setMode(mode){
     });
     displayMode='circuit'; activeFilter='all'; circuitExploded=false;
     document.getElementById('circuit-panel').style.display='flex';
+    document.getElementById('concept-text').style.display='none';
     document.querySelectorAll('.circ-btn').forEach(b=>b.classList.remove('active'));
     document.getElementById('circ-all').classList.add('active');
     applyDisplayColors();
